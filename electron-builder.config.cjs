@@ -1,3 +1,5 @@
+const fs = require('node:fs');
+
 const defaultOwner = 'MyndGoblyn';
 const defaultRepo = 'SCRIBE';
 const githubRepository = process.env.GITHUB_REPOSITORY;
@@ -6,6 +8,11 @@ const explicitRepo = process.env.GH_REPO;
 
 const [repoOwner, repoName] = githubRepository ? githubRepository.split('/') : [explicitOwner ?? defaultOwner, explicitRepo ?? defaultRepo];
 const publish = repoOwner && repoName ? [{ provider: 'github', owner: repoOwner, repo: repoName }] : undefined;
+const extraResources = [{ from: 'build/icon.ico', to: 'icon.ico' }];
+
+if (fs.existsSync('data-packs/nwnwiki.sqlite')) {
+  extraResources.push({ from: 'data-packs/nwnwiki.sqlite', to: 'data-packs/nwnwiki.sqlite' });
+}
 
 /** @type {import('electron-builder').Configuration} */
 const config = {
@@ -17,7 +24,7 @@ const config = {
     output: 'dist'
   },
   files: ['out/**/*', 'package.json'],
-  extraResources: [{ from: 'build/icon.ico', to: 'icon.ico' }],
+  extraResources,
   asarUnpack: ['node_modules/sql.js/dist/sql-wasm.wasm'],
   win: {
     icon: 'build/icon.ico',

@@ -1,6 +1,6 @@
 {
   "name": "scribe",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Local-first character database, build planner, and theorycrafting companion.",
   "author": "Elryck",
   "repository": {
@@ -17,6 +17,7 @@
     "dist:win": "tsc --noEmit && electron-vite build && node scripts/build-win-installer.mjs --publish never",
     "release:win": "node scripts/release-win.mjs",
     "clean:workspace": "node scripts/clean-workspace.mjs",
+    "import:nwnwiki": "node scripts/import-nwnwiki.mjs",
     "preview": "electron-vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

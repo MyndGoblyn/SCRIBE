@@ -35,7 +35,10 @@ import {
   type FeatSource,
   type ResourceLinkInput,
   type ServerProfileInput,
-  type UpdateStatus
+  type UpdateStatus,
+  type WikiImportSummary,
+  type WikiPageDetail,
+  type WikiSearchResult
 } from '../../shared/contracts';
 import {
   calculateAbilityModifier,
@@ -267,6 +270,12 @@ export function App(): ReactElement {
     message: 'Update service is waiting to start.',
     updatedAt: new Date().toISOString()
   });
+  const [wikiSummary, setWikiSummary] = useState<WikiImportSummary | null>(null);
+  const [wikiSearchQuery, setWikiSearchQuery] = useState('');
+  const [wikiSearchResults, setWikiSearchResults] = useState<WikiSearchResult[]>([]);
+  const [selectedWikiPage, setSelectedWikiPage] = useState<WikiPageDetail | null>(null);
+  const [wikiBusy, setWikiBusy] = useState(false);
+  const [wikiError, setWikiError] = useState('');
 
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [characterForm, setCharacterForm] = useState<CharacterInput>(cloneCharacterForm());
@@ -359,8 +368,52 @@ export function App(): ReactElement {
     }
   }
 
+  async function refreshWikiSummary(): Promise<void> {
+    const summary = await scribeApi.getNwnWikiSummary();
+    setWikiSummary(summary);
+  }
+
+  async function searchNwnWiki(nextQuery = wikiSearchQuery): Promise<void> {
+    const trimmedQuery = nextQuery.trim();
+    setWikiSearchQuery(nextQuery);
+    setWikiError('');
+    setSelectedWikiPage(null);
+
+    if (trimmedQuery.length < 2) {
+      setWikiSearchResults([]);
+      return;
+    }
+
+    setWikiBusy(true);
+    try {
+      const results = await scribeApi.searchNwnWiki(trimmedQuery, 15);
+      setWikiSearchResults(results);
+    } catch (err) {
+      setWikiError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setWikiBusy(false);
+    }
+  }
+
+  async function openWikiPage(pageId: number): Promise<void> {
+    setWikiBusy(true);
+    setWikiError('');
+    try {
+      const page = await scribeApi.getNwnWikiPage(pageId);
+      setSelectedWikiPage(page);
+      if (!page) {
+        setWikiError('NWNWiki page not found in the local data pack.');
+      }
+    } catch (err) {
+      setWikiError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setWikiBusy(false);
+    }
+  }
+
   useEffect(() => {
     void refresh().catch((err) => setError(err instanceof Error ? err.message : String(err)));
+    void refreshWikiSummary().catch((err) => setWikiError(err instanceof Error ? err.message : String(err)));
 
     const splashTimer = window.setTimeout(() => setShowSplash(false), 5000);
     const removeUpdaterListener = scribeApi.onUpdateStatus((status) => setUpdateStatus(status));
@@ -644,6 +697,15 @@ export function App(): ReactElement {
               setContentTagsText={setContentTagsText}
               rulesetName={rulesetName}
               sourceName={sourceName}
+              wikiSummary={wikiSummary}
+              wikiSearchQuery={wikiSearchQuery}
+              setWikiSearchQuery={setWikiSearchQuery}
+              wikiSearchResults={wikiSearchResults}
+              selectedWikiPage={selectedWikiPage}
+              wikiBusy={wikiBusy}
+              wikiError={wikiError}
+              onWikiSearch={() => void searchNwnWiki()}
+              onWikiPageSelect={(pageId) => void openWikiPage(pageId)}
               busy={busy}
               onSubmit={() =>
                 runAction(async () => {
@@ -1404,6 +1466,15 @@ function RulesView({
   setContentTagsText,
   rulesetName,
   sourceName,
+  wikiSummary,
+  wikiSearchQuery,
+  setWikiSearchQuery,
+  wikiSearchResults,
+  selectedWikiPage,
+  wikiBusy,
+  wikiError,
+  onWikiSearch,
+  onWikiPageSelect,
   busy,
   onSubmit
 }: {
@@ -1414,11 +1485,32 @@ function RulesView({
   setContentTagsText: (value: string) => void;
   rulesetName: (id: string) => string;
   sourceName: (id: string | null) => string;
+  wikiSummary: WikiImportSummary | null;
+  wikiSearchQuery: string;
+  setWikiSearchQuery: (value: string) => void;
+  wikiSearchResults: WikiSearchResult[];
+  selectedWikiPage: WikiPageDetail | null;
+  wikiBusy: boolean;
+  wikiError: string;
+  onWikiSearch: () => void;
+  onWikiPageSelect: (pageId: number) => void;
   busy: boolean;
   onSubmit: () => void;
 }): ReactElement {
   return (
     <div className="stack">
+      <NwnWikiReferencePanel
+        wikiSummary={wikiSummary}
+        wikiSearchQuery={wikiSearchQuery}
+        setWikiSearchQuery={setWikiSearchQuery}
+        wikiSearchResults={wikiSearchResults}
+        selectedWikiPage={selectedWikiPage}
+        wikiBusy={wikiBusy}
+        wikiError={wikiError}
+        onWikiSearch={onWikiSearch}
+        onWikiPageSelect={onWikiPageSelect}
+      />
+
       <section className="panel">
         <div className="panel-header">
           <div>
@@ -1514,6 +1606,144 @@ function RulesView({
         />
       </section>
     </div>
+  );
+}
+
+function NwnWikiReferencePanel({
+  wikiSummary,
+  wikiSearchQuery,
+  setWikiSearchQuery,
+  wikiSearchResults,
+  selectedWikiPage,
+  wikiBusy,
+  wikiError,
+  onWikiSearch,
+  onWikiPageSelect
+}: {
+  wikiSummary: WikiImportSummary | null;
+  wikiSearchQuery: string;
+  setWikiSearchQuery: (value: string) => void;
+  wikiSearchResults: WikiSearchResult[];
+  selectedWikiPage: WikiPageDetail | null;
+  wikiBusy: boolean;
+  wikiError: string;
+  onWikiSearch: () => void;
+  onWikiPageSelect: (pageId: number) => void;
+}): ReactElement {
+  return (
+    <section className="panel wiki-reference">
+      <div className="panel-header">
+        <div>
+          <h2>NWNWiki Offline Reference</h2>
+          <p>{wikiSummary?.hasDataPack ? `${wikiSummary.pageCount.toLocaleString()} pages indexed from ${wikiSummary.sourceName}.` : 'No local wiki data pack is installed yet.'}</p>
+        </div>
+        <span className={wikiSummary?.hasDataPack ? 'status-pill not_available' : 'status-pill'}>
+          {wikiSummary?.hasDataPack ? 'Ready' : 'Empty'}
+        </span>
+      </div>
+
+      <div className="wiki-pack-meta">
+        <div>
+          <span>Pages</span>
+          <strong>{wikiSummary?.pageCount.toLocaleString() ?? '0'}</strong>
+        </div>
+        <div>
+          <span>Indexed</span>
+          <strong>{wikiSummary?.indexedPageCount.toLocaleString() ?? '0'}</strong>
+        </div>
+        <div>
+          <span>Imported</span>
+          <strong>{wikiSummary?.importedAt ? displayDate(wikiSummary.importedAt) : 'Not yet'}</strong>
+        </div>
+        <div>
+          <span>Pack</span>
+          <strong>{wikiSummary?.dbPath ?? 'Loading'}</strong>
+        </div>
+      </div>
+
+      {wikiError && <div className="inline-error">{wikiError}</div>}
+
+      <form
+        className="wiki-search-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onWikiSearch();
+        }}
+      >
+        <div className="search-box">
+          <Search size={17} />
+          <input
+            value={wikiSearchQuery}
+            onChange={(event) => setWikiSearchQuery(event.target.value)}
+            placeholder="Search the local NWNWiki archive"
+            disabled={!wikiSummary?.hasDataPack}
+          />
+        </div>
+        <button type="submit" disabled={!wikiSummary?.hasDataPack || wikiBusy}>
+          <Search size={16} />
+          Search
+        </button>
+      </form>
+
+      {!wikiSummary?.hasDataPack ? (
+        <p className="empty-line">
+          Build a local pack with <code>pnpm import:nwnwiki -- --limit 25</code> for a smoke test, or omit the limit for a full archive.
+        </p>
+      ) : (
+        <div className="wiki-search-layout">
+          <div className="wiki-results" aria-label="NWNWiki search results">
+            {wikiSearchResults.length === 0 ? (
+              <EmptyLine text={wikiSearchQuery.trim().length >= 2 ? 'No local wiki matches.' : 'Enter a search above.'} />
+            ) : (
+              wikiSearchResults.map((result) => (
+                <button
+                  key={result.pageId}
+                  type="button"
+                  className={selectedWikiPage?.pageId === result.pageId ? 'wiki-result active' : 'wiki-result'}
+                  onClick={() => onWikiPageSelect(result.pageId)}
+                >
+                  <strong>{result.title}</strong>
+                  <span>{result.snippet || 'No snippet available.'}</span>
+                </button>
+              ))
+            )}
+          </div>
+
+          <article className="wiki-page">
+            {selectedWikiPage ? (
+              <>
+                <div className="wiki-page-header">
+                  <div>
+                    <h3>{selectedWikiPage.title}</h3>
+                    <p>
+                      Revision {selectedWikiPage.revisionId} - Fetched {displayDate(selectedWikiPage.fetchedAt)}
+                    </p>
+                  </div>
+                  <a href={selectedWikiPage.sourceUrl} target="_blank" rel="noreferrer">
+                    Source
+                  </a>
+                </div>
+                {selectedWikiPage.categories.length > 0 && (
+                  <div className="chip-row">
+                    {selectedWikiPage.categories.slice(0, 8).map((category) => (
+                      <span className="chip passive" key={category}>
+                        {category}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <p className="license-note">
+                  Text attribution: {selectedWikiPage.licenseName}. Local copy sourced from {wikiSummary?.sourceName ?? 'NWNWiki'}.
+                </p>
+                <pre>{selectedWikiPage.plainText}</pre>
+              </>
+            ) : (
+              <EmptyLine text="Select a result to read the local article text." />
+            )}
+          </article>
+        </div>
+      )}
+    </section>
   );
 }
 

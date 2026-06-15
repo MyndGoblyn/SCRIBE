@@ -11,7 +11,7 @@ Installed apps do not update from ordinary Git commits. They update from install
 3. Bump `package.json` version.
 4. Commit the change.
 5. Push a tag matching the version, for example `v0.1.1`.
-6. GitHub Actions builds the Windows installer and uploads `latest.yml`, the installer `.exe`, and the `.blockmap` to the GitHub Release.
+6. GitHub Actions builds the NWNWiki data pack, builds the Windows installer, and uploads `latest.yml`, the installer `.exe`, and the `.blockmap` to the GitHub Release.
 7. Installed SCRIBE apps check the GitHub Release feed and download the newer version.
 
 ## Local Installer Build

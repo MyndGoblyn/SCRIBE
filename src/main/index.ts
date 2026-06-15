@@ -1,10 +1,13 @@
 import path from 'node:path';
+import fs from 'node:fs';
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { createDatabase, type ScribeDatabase } from './database';
+import { createWikiDatabase, type WikiDatabase } from './wikiDatabase';
 import { configureAutoUpdates, registerUpdateIpc } from './updater';
 
 let mainWindow: BrowserWindow | null = null;
 let database: ScribeDatabase | null = null;
+let wikiDatabase: WikiDatabase | null = null;
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -48,6 +51,21 @@ function getDatabase(): ScribeDatabase {
   return database;
 }
 
+function getWikiDatabase(): WikiDatabase {
+  if (!wikiDatabase) {
+    throw new Error('NWNWiki database is not initialized.');
+  }
+  return wikiDatabase;
+}
+
+function resolveBundledWikiPack(): string | null {
+  const candidate = app.isPackaged
+    ? path.join(process.resourcesPath, 'data-packs', 'nwnwiki.sqlite')
+    : path.join(app.getAppPath(), 'data-packs', 'nwnwiki.sqlite');
+
+  return fs.existsSync(candidate) ? candidate : null;
+}
+
 function registerIpc(): void {
   ipcMain.handle('scribe:getAppData', () => getDatabase().getAppData());
   ipcMain.handle('scribe:createCharacter', (_event, input) => getDatabase().createCharacter(input));
@@ -75,13 +93,19 @@ function registerIpc(): void {
 
     return getDatabase().saveBuildMarkdown(buildId, result.filePath);
   });
+  ipcMain.handle('scribe:getNwnWikiSummary', () => getWikiDatabase().getSummary());
+  ipcMain.handle('scribe:searchNwnWiki', (_event, query: string, limit?: number) => getWikiDatabase().search(query, limit));
+  ipcMain.handle('scribe:getNwnWikiPage', (_event, pageId: number) => getWikiDatabase().getPage(pageId));
 }
 
 app.whenReady().then(async () => {
   app.setName('SCRIBE');
   const dbPath = path.join(app.getPath('userData'), 'scribe.sqlite');
+  const wikiDbPath = path.join(app.getPath('userData'), 'data-packs', 'nwnwiki.sqlite');
   database = createDatabase(dbPath);
+  wikiDatabase = createWikiDatabase(wikiDbPath, resolveBundledWikiPack());
   await database.init();
+  await wikiDatabase.init();
   registerIpc();
   registerUpdateIpc(() => mainWindow);
   createWindow();

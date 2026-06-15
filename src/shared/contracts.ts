@@ -330,6 +330,35 @@ export interface AppData {
   dbPath: string;
 }
 
+export interface WikiImportSummary {
+  pageCount: number;
+  indexedPageCount: number;
+  sourceName: string;
+  sourceUrl: string;
+  licenseName: string;
+  licenseUrl: string;
+  importedAt: string | null;
+  dbPath: string;
+  hasDataPack: boolean;
+}
+
+export interface WikiSearchResult {
+  pageId: number;
+  title: string;
+  snippet: string;
+  sourceUrl: string;
+  touchedAt: string;
+}
+
+export interface WikiPageDetail extends WikiSearchResult {
+  revisionId: number;
+  fetchedAt: string;
+  licenseName: string;
+  licenseUrl: string;
+  categories: string[];
+  plainText: string;
+}
+
 export interface SaveMarkdownResult {
   canceled: boolean;
   filePath?: string;
