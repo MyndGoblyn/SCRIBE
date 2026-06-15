@@ -1,6 +1,6 @@
 {
   "name": "scribe",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Local-first character database, build planner, and theorycrafting companion.",
   "author": "Elryck",
   "repository": {

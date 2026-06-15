@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import initSqlJs, { type Database, type SqlJsStatic } from 'sql.js';
 import type { WikiLibrarySummary, WikiPageDetail, WikiSearchResult } from '../shared/contracts';
+import { parseWikiSearchQuery, rankWikiSearchDocuments, type WikiSearchDocument } from '../shared/wikiSearch';
 
 type SqlValue = string | number | Uint8Array | null;
 type Row = Record<string, SqlValue>;
@@ -106,20 +107,18 @@ export class WikiDatabase {
       }
     }
 
-    const likeQuery = `%${cleanedQuery.toLowerCase()}%`;
-    return this.query(
-      `SELECT page_id, title, plain_text, source_url, touched_at
-       FROM wiki_pages
-       WHERE lower(title) LIKE ? OR lower(plain_text) LIKE ?
-       ORDER BY title
-       LIMIT ?`,
-      [likeQuery, likeQuery, safeLimit]
-    ).map((row) => ({
-      pageId: Number(row.page_id),
-      title: String(row.title),
-      snippet: extractSnippet(String(row.plain_text), cleanedQuery),
-      sourceUrl: String(row.source_url),
-      touchedAt: String(row.touched_at)
+    const parsedQuery = parseWikiSearchQuery(cleanedQuery);
+    if (!parsedQuery) {
+      return [];
+    }
+
+    const documents = this.findFallbackCandidates(parsedQuery, safeLimit);
+    return rankWikiSearchDocuments(cleanedQuery, documents, safeLimit).map((document) => ({
+      pageId: document.pageId,
+      title: document.title,
+      snippet: document.snippet,
+      sourceUrl: document.sourceUrl,
+      touchedAt: document.touchedAt
     }));
   }
 
@@ -208,6 +207,43 @@ export class WikiDatabase {
     }
   }
 
+  private findFallbackCandidates(parsedQuery: { phrase: string; terms: string[] }, limit: number): WikiSearchDocument[] {
+    const searchParts = [...new Set([parsedQuery.phrase, ...parsedQuery.terms])];
+    const whereFragments: string[] = [];
+    const params: SqlValue[] = [];
+
+    for (const part of searchParts) {
+      const likePart = `%${part}%`;
+      whereFragments.push('lower(title) LIKE ?', 'lower(plain_text) LIKE ?');
+      params.push(likePart, likePart);
+    }
+
+    const candidateLimit = Math.min(Math.max(limit * 120, 800), 4000);
+    const rows = this.query(
+      `SELECT page_id, title, plain_text, source_url, touched_at
+       FROM wiki_pages
+       WHERE ${whereFragments.join(' OR ')}
+       ORDER BY
+         CASE
+           WHEN lower(title) = ? THEN 0
+           WHEN lower(title) LIKE ? THEN 1
+           WHEN lower(title) LIKE ? THEN 2
+           ELSE 3
+         END,
+         title
+       LIMIT ?`,
+      [...params, parsedQuery.phrase, `${parsedQuery.phrase}%`, `%${parsedQuery.phrase}%`, candidateLimit]
+    );
+
+    return rows.map((row) => ({
+      pageId: Number(row.page_id),
+      title: String(row.title),
+      plainText: String(row.plain_text),
+      sourceUrl: String(row.source_url),
+      touchedAt: String(row.touched_at)
+    }));
+  }
+
   private getMetadata(key: string): string | null {
     const row = this.queryOne('SELECT value FROM metadata WHERE key = ?', [key]);
     return typeof row?.value === 'string' && row.value.length > 0 ? row.value : null;
@@ -274,21 +310,6 @@ function rowToSearchResult(row: Row): WikiSearchResult {
 function toFtsQuery(query: string): string {
   const terms = query.match(/[A-Za-z0-9_']+/g) ?? [];
   return terms.map((term) => `"${term.replace(/"/g, '""')}"`).join(' AND ');
-}
-
-function extractSnippet(text: string, query: string): string {
-  const lowerText = text.toLowerCase();
-  const lowerQuery = query.toLowerCase();
-  const index = lowerText.indexOf(lowerQuery);
-  if (index < 0) {
-    return text.slice(0, 240);
-  }
-
-  const start = Math.max(0, index - 90);
-  const end = Math.min(text.length, index + query.length + 150);
-  const prefix = start > 0 ? '...' : '';
-  const suffix = end < text.length ? '...' : '';
-  return `${prefix}${text.slice(start, end)}${suffix}`;
 }
 
 function jsonParse<T>(value: SqlValue, fallback: T): T {

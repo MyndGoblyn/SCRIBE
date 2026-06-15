@@ -10,7 +10,7 @@ const defaultApiUrl = 'https://nwn.fandom.com/api.php';
 const defaultSourceUrl = 'https://nwn.fandom.com/wiki/';
 const defaultLicenseName = 'CC BY-SA 3.0';
 const defaultLicenseUrl = 'https://creativecommons.org/licenses/by-sa/3.0/';
-const userAgent = 'SCRIBE/0.1.4 built-in NWNWiki importer';
+const userAgent = 'SCRIBE/0.1.5 built-in NWNWiki importer';
 
 const schemaSql = `
 CREATE TABLE IF NOT EXISTS metadata (
