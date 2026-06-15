@@ -615,27 +615,19 @@ td {
   bottom: 18%;
 }
 
-.splash-emblem {
-  width: clamp(170px, 25vw, 300px);
-  height: auto;
-  object-fit: contain;
-  filter: drop-shadow(0 22px 34px rgba(0, 0, 0, 0.46)) drop-shadow(0 0 22px rgba(47, 183, 255, 0.28));
-  animation: emblem-rise 900ms ease-out both;
-}
-
 .splash-logo {
-  width: min(760px, 74vw);
+  width: min(900px, 82vw);
   height: auto;
   object-fit: contain;
   filter: drop-shadow(0 18px 22px rgba(0, 0, 0, 0.5));
-  animation: logo-reveal 1100ms 260ms ease-out both;
+  animation: logo-reveal 900ms ease-out both;
 }
 
 .splash-line {
   width: min(520px, 46vw);
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(215, 169, 77, 0.86), transparent);
-  animation: logo-reveal 1100ms 520ms ease-out both;
+  animation: logo-reveal 900ms 220ms ease-out both;
 }
 
 .update-panel {
@@ -699,17 +691,6 @@ td {
   100% {
     opacity: 0;
     visibility: hidden;
-  }
-}
-
-@keyframes emblem-rise {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
   }
 }
 

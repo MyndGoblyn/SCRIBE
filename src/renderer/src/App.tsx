@@ -759,7 +759,6 @@ function SplashScreen(): ReactElement {
   return (
     <div className="splash-screen" aria-label="SCRIBE loading">
       <div className="splash-glow" />
-      <img className="splash-emblem" src={scribeEmblemUrl} alt="" />
       <img className="splash-logo" src={scribeLogoUrl} alt="SCRIBE" />
       <div className="splash-line" />
     </div>
