@@ -44,6 +44,7 @@ function runPackageManager(args) {
 }
 
 runPackageManager(['build']);
+runPackageManager(['import:nwnwiki']);
 
 const require = createRequire(import.meta.url);
 run(process.execPath, [require.resolve('electron-builder/cli.js'), '--config', 'electron-builder.config.cjs', '--win', 'nsis', '--publish', 'onTagOrDraft']);

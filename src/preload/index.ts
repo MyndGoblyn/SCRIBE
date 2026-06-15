@@ -15,7 +15,7 @@ import type {
   ServerProfile,
   ServerProfileInput,
   UpdateStatus,
-  WikiImportSummary,
+  WikiLibrarySummary,
   WikiPageDetail,
   WikiSearchResult
 } from '../shared/contracts';
@@ -36,7 +36,7 @@ const api = {
     ipcRenderer.invoke('scribe:createResourceLink', input),
   buildMarkdown: (buildId: string): Promise<string> => ipcRenderer.invoke('scribe:buildMarkdown', buildId),
   saveBuildMarkdown: (buildId: string): Promise<SaveMarkdownResult> => ipcRenderer.invoke('scribe:saveBuildMarkdown', buildId),
-  getNwnWikiSummary: (): Promise<WikiImportSummary> => ipcRenderer.invoke('scribe:getNwnWikiSummary'),
+  getNwnWikiSummary: (): Promise<WikiLibrarySummary> => ipcRenderer.invoke('scribe:getNwnWikiSummary'),
   searchNwnWiki: (query: string, limit?: number): Promise<WikiSearchResult[]> => ipcRenderer.invoke('scribe:searchNwnWiki', query, limit),
   getNwnWikiPage: (pageId: number): Promise<WikiPageDetail | null> => ipcRenderer.invoke('scribe:getNwnWikiPage', pageId),
   getUpdateStatus: (): Promise<UpdateStatus> => ipcRenderer.invoke('scribe:getUpdateStatus'),

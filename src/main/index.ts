@@ -60,8 +60,8 @@ function getWikiDatabase(): WikiDatabase {
 
 function resolveBundledWikiPack(): string | null {
   const candidate = app.isPackaged
-    ? path.join(process.resourcesPath, 'data-packs', 'nwnwiki.sqlite')
-    : path.join(app.getAppPath(), 'data-packs', 'nwnwiki.sqlite');
+    ? path.join(process.resourcesPath, 'wiki', 'nwnwiki.sqlite')
+    : path.join(app.getAppPath(), 'wiki', 'nwnwiki.sqlite');
 
   return fs.existsSync(candidate) ? candidate : null;
 }
@@ -101,7 +101,7 @@ function registerIpc(): void {
 app.whenReady().then(async () => {
   app.setName('SCRIBE');
   const dbPath = path.join(app.getPath('userData'), 'scribe.sqlite');
-  const wikiDbPath = path.join(app.getPath('userData'), 'data-packs', 'nwnwiki.sqlite');
+  const wikiDbPath = path.join(app.getPath('userData'), 'wiki', 'nwnwiki.sqlite');
   database = createDatabase(dbPath);
   wikiDatabase = createWikiDatabase(wikiDbPath, resolveBundledWikiPack());
   await database.init();

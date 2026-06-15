@@ -10,8 +10,8 @@ const [repoOwner, repoName] = githubRepository ? githubRepository.split('/') : [
 const publish = repoOwner && repoName ? [{ provider: 'github', owner: repoOwner, repo: repoName }] : undefined;
 const extraResources = [{ from: 'build/icon.ico', to: 'icon.ico' }];
 
-if (fs.existsSync('data-packs/nwnwiki.sqlite')) {
-  extraResources.push({ from: 'data-packs/nwnwiki.sqlite', to: 'data-packs/nwnwiki.sqlite' });
+if (fs.existsSync('wiki/nwnwiki.sqlite')) {
+  extraResources.push({ from: 'wiki/nwnwiki.sqlite', to: 'wiki/nwnwiki.sqlite' });
 }
 
 /** @type {import('electron-builder').Configuration} */

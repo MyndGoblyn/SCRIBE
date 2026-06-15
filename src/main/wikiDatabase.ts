@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import initSqlJs, { type Database, type SqlJsStatic } from 'sql.js';
-import type { WikiImportSummary, WikiPageDetail, WikiSearchResult } from '../shared/contracts';
+import type { WikiLibrarySummary, WikiPageDetail, WikiSearchResult } from '../shared/contracts';
 
 type SqlValue = string | number | Uint8Array | null;
 type Row = Record<string, SqlValue>;
@@ -46,7 +46,7 @@ export class WikiDatabase {
   ) {}
 
   async init(): Promise<void> {
-    this.copyBundledPackIfNeeded();
+    this.copyBundledLibraryIfNeeded();
 
     const wasmPath = require.resolve('sql.js/dist/sql-wasm.wasm').replace('app.asar', 'app.asar.unpacked');
     this.sql = await initSqlJs({
@@ -61,20 +61,17 @@ export class WikiDatabase {
     this.persist();
   }
 
-  getSummary(): WikiImportSummary {
-    const pageCount = this.countRows('wiki_pages');
-    const indexedPageCount = this.ftsAvailable ? this.countRows('wiki_pages_fts') : pageCount;
+  getSummary(): WikiLibrarySummary {
+    const articleCount = this.countRows('wiki_pages');
 
     return {
-      pageCount,
-      indexedPageCount,
+      articleCount,
       sourceName: this.getMetadata('source_name') ?? defaultSourceName,
       sourceUrl: this.getMetadata('source_url') ?? defaultSourceUrl,
       licenseName: this.getMetadata('license_name') ?? defaultLicenseName,
       licenseUrl: this.getMetadata('license_url') ?? defaultLicenseUrl,
-      importedAt: this.getMetadata('imported_at'),
-      dbPath: this.dbPath,
-      hasDataPack: pageCount > 0
+      updatedAt: this.getMetadata('updated_at') ?? this.getMetadata('imported_at'),
+      hasLibrary: articleCount > 0
     };
   }
 
@@ -154,8 +151,17 @@ export class WikiDatabase {
     };
   }
 
-  private copyBundledPackIfNeeded(): void {
-    if (!this.bundledDbPath || fs.existsSync(this.dbPath) || !fs.existsSync(this.bundledDbPath)) {
+  private copyBundledLibraryIfNeeded(): void {
+    if (!this.bundledDbPath || !fs.existsSync(this.bundledDbPath)) {
+      return;
+    }
+
+    const shouldCopy =
+      !fs.existsSync(this.dbPath) ||
+      fs.statSync(this.dbPath).size < 1024 * 1024 ||
+      fs.statSync(this.bundledDbPath).mtimeMs > fs.statSync(this.dbPath).mtimeMs;
+
+    if (!shouldCopy) {
       return;
     }
 

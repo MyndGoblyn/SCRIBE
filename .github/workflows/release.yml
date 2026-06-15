@@ -33,10 +33,6 @@ jobs:
       - name: Verify
         run: pnpm verify
 
-      - name: Build NWNWiki data pack
-        if: startsWith(github.ref, 'refs/tags/')
-        run: pnpm import:nwnwiki -- --delay-ms 150
-
       - name: Build Windows installer
         run: pnpm dist:win
         env:

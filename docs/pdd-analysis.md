@@ -43,6 +43,6 @@ Native SQLite bindings can be revisited after the product model settles. The cur
 
 - Should portraits/images be stored in the database, the filesystem, or both?
 - Should D&D 3.5e and 5e be visible as disabled seeds during MVP or hidden until v1?
-- Should the first NWN data pack be hand-curated JSON, imported from structured community data, or entered through the app?
+- Should the first built-in NWN rules/wiki library be hand-curated JSON, imported from structured community data, or entered through the app?
 - Should Markdown export save directly, copy to clipboard, or support both?
 - Should build locking be present in the MVP UI or only in the schema initially?

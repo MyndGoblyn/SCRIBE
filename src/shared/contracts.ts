@@ -330,16 +330,14 @@ export interface AppData {
   dbPath: string;
 }
 
-export interface WikiImportSummary {
-  pageCount: number;
-  indexedPageCount: number;
+export interface WikiLibrarySummary {
+  articleCount: number;
   sourceName: string;
   sourceUrl: string;
   licenseName: string;
   licenseUrl: string;
-  importedAt: string | null;
-  dbPath: string;
-  hasDataPack: boolean;
+  updatedAt: string | null;
+  hasLibrary: boolean;
 }
 
 export interface WikiSearchResult {

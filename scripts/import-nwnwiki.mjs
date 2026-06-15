@@ -10,7 +10,7 @@ const defaultApiUrl = 'https://nwn.fandom.com/api.php';
 const defaultSourceUrl = 'https://nwn.fandom.com/wiki/';
 const defaultLicenseName = 'CC BY-SA 3.0';
 const defaultLicenseUrl = 'https://creativecommons.org/licenses/by-sa/3.0/';
-const userAgent = 'SCRIBE/0.1.3 local NWNWiki data-pack importer';
+const userAgent = 'SCRIBE/0.1.4 built-in NWNWiki importer';
 
 const schemaSql = `
 CREATE TABLE IF NOT EXISTS metadata (
@@ -43,7 +43,7 @@ async function main() {
     return;
   }
 
-  const outPath = path.resolve(options.out ?? path.join(process.cwd(), 'data-packs', 'nwnwiki.sqlite'));
+  const outPath = path.resolve(options.out ?? path.join(process.cwd(), 'wiki', 'nwnwiki.sqlite'));
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
 
   const SQL = await initSqlJs({
@@ -82,10 +82,10 @@ async function main() {
     await sleep(options.delayMs);
   }
 
-  seedMetadata(db, { imported_at: new Date().toISOString() });
+  seedMetadata(db, { updated_at: new Date().toISOString(), imported_at: new Date().toISOString() });
   db.exec('VACUUM;');
   saveDatabase(db, outPath);
-  console.log(`NWNWiki data pack written to ${outPath}`);
+  console.log(`NWNWiki library written to ${outPath}`);
 }
 
 async function fetchAllPages(options) {
@@ -335,7 +335,7 @@ function printHelp() {
 Usage: pnpm import:nwnwiki -- [options]
 
 Options:
-  --out <path>          SQLite output path. Default: data-packs/nwnwiki.sqlite
+  --out <path>          SQLite output path. Default: wiki/nwnwiki.sqlite
   --limit <count>       Import only the first N pages for smoke testing.
   --namespace <id>      MediaWiki namespace id. Default: 0
   --delay-ms <ms>       Delay between API calls. Default: 100

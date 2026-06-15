@@ -577,40 +577,9 @@ td {
   background: var(--warm);
 }
 
-.wiki-reference {
+.wiki-search-panel {
   display: grid;
   gap: 16px;
-}
-
-.wiki-pack-meta {
-  display: grid;
-  grid-template-columns: 110px 110px 150px minmax(0, 1fr);
-  gap: 10px;
-}
-
-.wiki-pack-meta div {
-  min-width: 0;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface-2);
-}
-
-.wiki-pack-meta span {
-  display: block;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.wiki-pack-meta strong {
-  display: block;
-  overflow: hidden;
-  margin-top: 4px;
-  color: var(--ink);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .inline-error {
@@ -811,7 +780,8 @@ td {
   background: var(--danger);
 }
 
-.status-pill.not_available {
+.status-pill.not_available,
+.status-pill.ready {
   color: #07101b;
   border-color: transparent;
   background: var(--ok);
@@ -889,7 +859,6 @@ td {
   .three-column,
   .metric-grid,
   .settings-grid,
-  .wiki-pack-meta,
   .wiki-search-layout {
     grid-template-columns: 1fr;
   }

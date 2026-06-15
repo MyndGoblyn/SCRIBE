@@ -14,7 +14,7 @@ import type {
   ServerProfile,
   ServerProfileInput,
   UpdateStatus,
-  WikiImportSummary,
+  WikiLibrarySummary,
   WikiPageDetail,
   WikiSearchResult
 } from '../../shared/contracts';
@@ -116,16 +116,14 @@ const previewUpdateStatus: UpdateStatus = {
   updatedAt: now
 };
 
-const previewWikiSummary: WikiImportSummary = {
-  pageCount: 3,
-  indexedPageCount: 3,
+const previewWikiSummary: WikiLibrarySummary = {
+  articleCount: 3,
   sourceName: 'NWNWiki',
   sourceUrl: 'https://nwn.fandom.com/wiki/',
   licenseName: 'CC BY-SA 3.0',
   licenseUrl: 'https://creativecommons.org/licenses/by-sa/3.0/',
-  importedAt: now,
-  dbPath: 'Preview mode',
-  hasDataPack: true
+  updatedAt: now,
+  hasLibrary: true
 };
 
 const previewWikiPages: WikiPageDetail[] = [
