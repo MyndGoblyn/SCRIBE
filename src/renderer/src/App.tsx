@@ -25,10 +25,12 @@ import {
   type AppData,
   type Build,
   type BuildInput,
+  type BuildLevel,
   type BuildLevelInput,
   type Character,
   type CharacterInput,
   type ContentEntryInput,
+  type FeatSelection,
   type FeatSelectionInput,
   type FeatSource,
   type ResourceLinkInput,
@@ -45,8 +47,24 @@ import {
   calculateSavingThrow
 } from '../../shared/calculations';
 import { getScribeApi } from './previewApi';
+import { SourceBadge } from './components/SourceBadge';
 import scribeEmblemUrl from './assets/scribe-emblem.png';
 import scribeLogoUrl from './assets/scribe-logo.png';
+import {
+  classAbbreviation,
+  estimateSkillPoints,
+  formatFeatSourceLabel,
+  getBuildForgeSteps,
+  getBuildHealth,
+  getLevelCellView,
+  splitFeatureNotes,
+  validateBuildPlan,
+  type BuildForgeStep,
+  type BuildHealth,
+  type SkillPointEstimate,
+  type ValidationIssue
+} from './features/buildForgeModel';
+import { getCharacterDossier, type CharacterDossier } from './features/characterDossier';
 
 const scribeApi = getScribeApi();
 
@@ -301,6 +319,7 @@ export function App(): ReactElement {
   const [selectedWikiPage, setSelectedWikiPage] = useState<WikiPageDetail | null>(null);
   const [wikiBusy, setWikiBusy] = useState(false);
   const [wikiError, setWikiError] = useState('');
+  const [compendiumDrawerOpen, setCompendiumDrawerOpen] = useState(false);
 
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [characterForm, setCharacterForm] = useState<CharacterInput>(cloneCharacterForm());
@@ -624,9 +643,20 @@ export function App(): ReactElement {
             <Search size={17} />
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search workspace records" />
           </div>
-          <button className="icon-button" type="button" onClick={() => void refresh()} title="Refresh workspace" aria-label="Refresh workspace">
-            <RefreshCw size={18} />
-          </button>
+          <div className="topbar-actions">
+            <button
+              className="icon-button"
+              type="button"
+              onClick={() => setCompendiumDrawerOpen(true)}
+              title="Open Compendium drawer"
+              aria-label="Open Compendium drawer"
+            >
+              <BookOpen size={18} />
+            </button>
+            <button className="icon-button" type="button" onClick={() => void refresh()} title="Refresh workspace" aria-label="Refresh workspace">
+              <RefreshCw size={18} />
+            </button>
+          </div>
         </header>
 
         {error && <div className="banner error">{error}</div>}
@@ -668,6 +698,7 @@ export function App(): ReactElement {
               resetCharacterForm={resetCharacterForm}
               editCharacter={editCharacter}
               rulesetName={rulesetName}
+              openCompendium={() => setCompendiumDrawerOpen(true)}
               busy={busy}
               onSubmit={() =>
                 runAction(async () => {
@@ -707,6 +738,7 @@ export function App(): ReactElement {
               newFeat={newFeat}
               setNewFeat={setNewFeat}
               rulesetName={rulesetName}
+              openCompendium={() => setCompendiumDrawerOpen(true)}
               busy={busy}
               onBuildSubmit={() =>
                 runAction(async () => {
@@ -895,6 +927,23 @@ export function App(): ReactElement {
           )}
         </section>
       </main>
+      <CompendiumDrawer
+        open={compendiumDrawerOpen}
+        onClose={() => setCompendiumDrawerOpen(false)}
+        wikiSummary={wikiSummary}
+        wikiSearchQuery={wikiSearchQuery}
+        setWikiSearchQuery={setWikiSearchQuery}
+        wikiSearchResults={wikiSearchResults}
+        selectedWikiPage={selectedWikiPage}
+        wikiBusy={wikiBusy}
+        wikiError={wikiError}
+        onWikiSearch={() => void searchNwnWiki()}
+        onWikiPageSelect={(pageId) => void openWikiPage(pageId)}
+        onOpenFullCompendium={() => {
+          setActiveView('wiki');
+          setCompendiumDrawerOpen(false);
+        }}
+      />
     </div>
   );
 }
@@ -1023,6 +1072,7 @@ function CharactersView({
   resetCharacterForm,
   editCharacter,
   rulesetName,
+  openCompendium,
   busy,
   onSubmit
 }: {
@@ -1033,12 +1083,21 @@ function CharactersView({
   resetCharacterForm: () => void;
   editCharacter: (character: Character) => void;
   rulesetName: (id: string) => string;
+  openCompendium: () => void;
   busy: boolean;
   onSubmit: () => void;
 }): ReactElement {
+  const selectedCharacter = data.characters.find((character) => character.id === selectedCharacterId) ?? data.characters[0] ?? null;
+  const assignedBuild = selectedCharacter ? data.builds.find((build) => build.id === selectedCharacter.buildId) ?? null : null;
+  const assignedLevels = assignedBuild ? data.buildLevels.filter((level) => level.buildId === assignedBuild.id) : [];
+  const assignedLevelIds = new Set(assignedLevels.map((level) => level.id));
+  const assignedFeats = data.featSelections.filter((feat) => assignedLevelIds.has(feat.buildLevelId));
+  const dossier = getCharacterDossier(selectedCharacter, assignedBuild, assignedLevels, assignedFeats);
+
   return (
-    <div className="stack">
-      <section className="panel">
+    <div className="dossier-layout">
+      <div className="stack">
+        <section className="panel">
         <div className="panel-header">
           <div>
             <h2>{selectedCharacterId ? 'Edit Character Record' : 'Create Character Record'}</h2>
@@ -1170,29 +1229,166 @@ function CharactersView({
             </button>
           </div>
         </form>
+        </section>
+
+        <section className="panel">
+          <div className="panel-header">
+            <h2>Character Records</h2>
+          </div>
+          <div className="character-card-list">
+            {data.characters.length === 0 ? (
+              <EmptyLine text="No characters created yet." />
+            ) : (
+              data.characters.map((character) => {
+                const guideName = data.builds.find((build) => build.id === character.buildId)?.name ?? 'Unassigned';
+                return (
+                  <button
+                    key={character.id}
+                    type="button"
+                    className={character.id === selectedCharacter?.id ? 'character-card active' : 'character-card'}
+                    onClick={() => editCharacter(character)}
+                  >
+                    <span>
+                      <strong>{character.name}</strong>
+                      <small>{rulesetName(character.rulesetId)}</small>
+                    </span>
+                    <span>
+                      <strong>Level {character.currentLevel}</strong>
+                      <small>{guideName}</small>
+                    </span>
+                    <span className="status-pill">{formatLabel(character.status)}</span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </section>
+      </div>
+
+      <CharacterDossierPanel
+        character={selectedCharacter}
+        dossier={dossier}
+        assignedBuild={assignedBuild}
+        assignedLevels={assignedLevels}
+        assignedFeats={assignedFeats}
+        openCompendium={openCompendium}
+      />
+    </div>
+  );
+}
+
+function CharacterDossierPanel({
+  character,
+  dossier,
+  assignedBuild,
+  assignedLevels,
+  assignedFeats,
+  openCompendium
+}: {
+  character: Character | null;
+  dossier: CharacterDossier | null;
+  assignedBuild: Build | null;
+  assignedLevels: BuildLevel[];
+  assignedFeats: FeatSelection[];
+  openCompendium: () => void;
+}): ReactElement {
+  if (!character || !dossier) {
+    return (
+      <aside className="panel character-dossier">
+        <div className="panel-header">
+          <h2>Character Dossier</h2>
+        </div>
+        <EmptyLine text="Create a Character Record to see its dossier." />
+      </aside>
+    );
+  }
+
+  return (
+    <aside className="panel character-dossier">
+      <div className="record-portrait">
+        <img src={scribeEmblemUrl} alt="" />
+      </div>
+      <div className="record-title">
+        <p className="eyebrow">{dossier.status}</p>
+        <h2>{dossier.name}</h2>
+        <span>{dossier.levelLabel}</span>
+      </div>
+
+      <div className="progress-block">
+        <div className="progress-track inline">
+          <div style={{ width: `${dossier.progressPercent}%` }} />
+        </div>
+        <span>{dossier.progressPercent}% of planned progression</span>
+      </div>
+
+      <div className="record-stat-grid">
+        <StatTile label="Assigned Guide" value={dossier.assignedBuildName} />
+        <StatTile label="Guide Levels" value={`${dossier.plannedLevelCount}/${assignedBuild?.levelCap ?? character.plannedFinalLevel ?? character.currentLevel}`} />
+        <StatTile label="Guide Feats" value={dossier.featCount} />
+        <StatTile label="Warnings" value={dossier.warningCount} tone={dossier.warningCount > 0 ? 'warn' : 'ok'} />
+      </div>
+
+      <section className="record-section">
+        <h3>Next Step</h3>
+        <p>{dossier.nextStep}</p>
       </section>
 
-      <section className="panel">
-        <div className="panel-header">
-          <h2>Character Records</h2>
+      <section className="record-section">
+        <h3>Ability Scores</h3>
+        <div className="ability-score-tiles">
+          {abilityKeys.map((key) => {
+            const modifier = calculateAbilityModifier(character.abilityScores[key]);
+            return (
+              <span key={key}>
+                <strong>{key.slice(0, 3).toUpperCase()}</strong>
+                <em>{character.abilityScores[key]}</em>
+                <small>{modifier >= 0 ? '+' : ''}{modifier}</small>
+              </span>
+            );
+          })}
         </div>
-        <DataTable
-          headers={['Name', 'Ruleset', 'Level', 'Build', 'Status', 'Updated', '']}
-          empty="No characters created yet."
-          rows={data.characters.map((character) => [
-            character.name,
-            rulesetName(character.rulesetId),
-            String(character.currentLevel),
-            data.builds.find((build) => build.id === character.buildId)?.name ?? 'Unassigned',
-            formatLabel(character.status),
-            displayDate(character.updatedAt),
-            <button key={character.id} type="button" className="icon-button" onClick={() => editCharacter(character)} title="Edit character" aria-label={`Edit ${character.name}`}>
-              <FileText size={16} />
-            </button>
-          ])}
-        />
       </section>
-    </div>
+
+      <section className="record-section">
+        <h3>Guide Trace</h3>
+        {dossier.deviations.length === 0 ? (
+          <p>No recorded deviations from the assigned guide.</p>
+        ) : (
+          <ul className="validation-list">
+            {dossier.deviations.map((deviation) => (
+              <li className="validation-item warning" key={deviation}>
+                <strong>Check</strong>
+                <span>{deviation}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="record-section">
+        <h3>Recent Guide Feats</h3>
+        {assignedFeats.length === 0 ? (
+          <p>No guide feats recorded yet.</p>
+        ) : (
+          <div className="chip-row">
+            {assignedFeats.slice(0, 8).map((feat) => (
+              <span className="chip passive source-chip" key={feat.id}>
+                <SourceBadge source={feat.source} />
+                {feat.featName}
+              </span>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <div className="button-row">
+        <button type="button" className="ghost" onClick={openCompendium}>
+          <BookOpen size={16} />
+          Compendium
+        </button>
+        <span className="dossier-footnote">{assignedLevels.length} level entries linked</span>
+      </div>
+    </aside>
   );
 }
 
@@ -1214,6 +1410,7 @@ function BuildsView({
   newFeat,
   setNewFeat,
   rulesetName,
+  openCompendium,
   busy,
   onBuildSubmit,
   onLevelSubmit
@@ -1235,13 +1432,30 @@ function BuildsView({
   newFeat: FeatSelectionInput;
   setNewFeat: (feat: FeatSelectionInput) => void;
   rulesetName: (id: string) => string;
+  openCompendium: () => void;
   busy: boolean;
   onBuildSubmit: () => void;
   onLevelSubmit: () => void;
 }): ReactElement {
   const selectedBuild = data.builds.find((build) => build.id === selectedBuildId) ?? data.builds[0] ?? null;
-  const plannedLevels = selectedBuild ? data.buildLevels.filter((level) => level.buildId === selectedBuild.id) : [];
+  const plannedLevels = selectedBuild
+    ? data.buildLevels.filter((level) => level.buildId === selectedBuild.id).sort((left, right) => left.levelNumber - right.levelNumber)
+    : [];
   const levels = selectedBuild ? Array.from({ length: selectedBuild.levelCap }, (_, index) => index + 1) : [];
+  const selectedBuildLevelIds = new Set(plannedLevels.map((level) => level.id));
+  const selectedBuildFeats = data.featSelections.filter((feat) => selectedBuildLevelIds.has(feat.buildLevelId));
+  const selectedLevelEntity = plannedLevels.find((level) => level.levelNumber === selectedLevelNumber) ?? null;
+  const selectedLevelFeats = selectedLevelEntity ? data.featSelections.filter((feat) => feat.buildLevelId === selectedLevelEntity.id) : levelForm.featSelections;
+  const forgeSteps = getBuildForgeSteps(selectedBuild ?? buildForm, plannedLevels);
+  const buildHealth = getBuildHealth(selectedBuild, plannedLevels, selectedBuildFeats);
+  const validationIssues = validateBuildPlan(
+    selectedBuild ?? buildForm,
+    plannedLevels.length > 0 ? plannedLevels : [levelForm],
+    selectedBuildFeats.length > 0 ? selectedBuildFeats : levelForm.featSelections,
+    selectedBuild?.levelCap ?? buildForm.levelCap
+  );
+  const skillEstimate = estimateSkillPoints(levelForm, selectedBuild ?? buildForm);
+  const featureNotes = splitFeatureNotes(levelForm.classFeatureNotes);
 
   function addFeat(): void {
     if (!newFeat.featName.trim()) return;
@@ -1253,7 +1467,9 @@ function BuildsView({
   }
 
   return (
-    <div className="stack">
+    <div className="forge-shell">
+      <BuildForgeRail steps={forgeSteps} />
+      <div className="stack forge-main">
       {mode === 'builds' && (
         <>
           <section className="panel">
@@ -1364,14 +1580,20 @@ function BuildsView({
             <h2>Level Path</h2>
             <p>Plan each level inside the Build Plan and preserve feat/feature source labels.</p>
           </div>
-          <select value={selectedBuild?.id ?? ''} onChange={(event) => setSelectedBuildId(event.target.value || null)} className="compact-select">
-            <option value="">Select Build Plan</option>
-            {data.builds.map((build) => (
-              <option key={build.id} value={build.id}>
-                {build.name}
-              </option>
-            ))}
-          </select>
+          <div className="panel-actions">
+            <button type="button" className="ghost" onClick={openCompendium}>
+              <BookOpen size={16} />
+              Reference
+            </button>
+            <select value={selectedBuild?.id ?? ''} onChange={(event) => setSelectedBuildId(event.target.value || null)} className="compact-select">
+              <option value="">Select Build Plan</option>
+              {data.builds.map((build) => (
+                <option key={build.id} value={build.id}>
+                  {build.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {!selectedBuild ? (
@@ -1380,16 +1602,33 @@ function BuildsView({
           <div className="level-planner">
             <div className="level-grid" aria-label="Build Plan levels">
               {levels.map((levelNumber) => {
-                const planned = plannedLevels.some((level) => level.levelNumber === levelNumber);
+                const level = plannedLevels.find((entry) => entry.levelNumber === levelNumber) ?? null;
+                const levelFeats = level ? data.featSelections.filter((feat) => feat.buildLevelId === level.id) : [];
+                const cell = getLevelCellView(levelNumber, level, levelFeats);
+                const className = [
+                  'level-cell',
+                  selectedLevelNumber === levelNumber ? 'selected' : '',
+                  cell.isComplete ? 'planned' : '',
+                  cell.hasWarning ? 'warning' : '',
+                  cell.hasFeat ? 'has-feat' : ''
+                ]
+                  .filter(Boolean)
+                  .join(' ');
                 return (
                   <button
                     key={levelNumber}
                     type="button"
-                    className={selectedLevelNumber === levelNumber ? 'level-cell selected' : planned ? 'level-cell planned' : 'level-cell'}
+                    className={className}
                     onClick={() => setSelectedLevelNumber(levelNumber)}
-                    title={`Level ${levelNumber}`}
+                    title={`Level ${levelNumber}${level?.className ? `: ${level.className}` : ''}`}
                   >
-                    {levelNumber}
+                    <span className="level-number">{levelNumber}</span>
+                    <span className="level-class">{cell.classAbbreviation}</span>
+                    <span className="level-markers" aria-hidden="true">
+                      {cell.hasFeat && <span className="marker feat-marker" />}
+                      {cell.hasAbilityIncrease && <span className="marker ability-marker" />}
+                      {cell.hasWarning && <span className="marker warning-marker" />}
+                    </span>
                   </button>
                 );
               })}
@@ -1466,6 +1705,12 @@ function BuildsView({
                   placeholder="Discipline +4, Tumble +2"
                 />
               </Field>
+              <div className="planner-status-grid">
+                <StatTile label="Estimated Skill Points" value={skillEstimate.estimatedAvailable} />
+                <StatTile label="Entered Skill Points" value={skillEstimate.enteredAvailable ?? 'Auto'} />
+                <StatTile label="Spent" value={skillEstimate.spent} />
+                <StatTile label="Remaining" value={skillEstimate.remaining ?? 'Auto'} tone={skillEstimate.remaining !== null && skillEstimate.remaining < 0 ? 'warn' : 'ok'} />
+              </div>
               <Field label="Feat / Feature Source" wide>
                 <div className="feat-editor">
                   <input value={newFeat.featName} onChange={(event) => setNewFeat({ ...newFeat, featName: event.target.value })} placeholder="Power Attack" />
@@ -1496,7 +1741,8 @@ function BuildsView({
                         }
                         title="Remove"
                       >
-                        {featSources.find((source) => source.value === feat.source)?.label}: {feat.featName}
+                        <SourceBadge source={feat.source} />
+                        {feat.featName}
                       </button>
                     ))}
                   </div>
@@ -1513,6 +1759,15 @@ function BuildsView({
               </Field>
               <Field label="Automatic Features" wide>
                 <textarea value={levelForm.classFeatureNotes} onChange={(event) => setLevelForm((form) => ({ ...form, classFeatureNotes: event.target.value }))} />
+                {featureNotes.length > 0 && (
+                  <div className="chip-row">
+                    {featureNotes.map((feature) => (
+                      <span className="chip passive feature-chip" key={feature}>
+                        {feature}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </Field>
               <Field label="Warnings" wide>
                 <input
@@ -1536,7 +1791,205 @@ function BuildsView({
           </div>
         )}
       </section>
+      </div>
+
+      <div className="forge-record-stack">
+        <BuildRecordPanel build={selectedBuild} plannedLevels={plannedLevels} selectedLevelNumber={selectedLevelNumber} rulesetName={rulesetName} />
+        <BuildHealthPanel health={buildHealth} issues={validationIssues} />
+        <BuildReferencePanel
+          selectedLevelNumber={selectedLevelNumber}
+          selectedFeats={selectedLevelFeats}
+          featureNotes={featureNotes}
+          skillEstimate={skillEstimate}
+          openCompendium={openCompendium}
+        />
+      </div>
     </div>
+  );
+}
+
+function BuildForgeRail({ steps }: { steps: BuildForgeStep[] }): ReactElement {
+  return (
+    <aside className="panel forge-rail">
+      <div className="panel-header">
+        <div>
+          <h2>Forge Path</h2>
+          <p>Build Plans move from record setup to reusable guide.</p>
+        </div>
+      </div>
+      <ol className="step-rail-list">
+        {steps.map((step, index) => (
+          <li className={`step-item ${step.state}`} key={step.key}>
+            <span>{index + 1}</span>
+            <div>
+              <strong>{step.label}</strong>
+              <small>{step.detail}</small>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </aside>
+  );
+}
+
+function BuildRecordPanel({
+  build,
+  plannedLevels,
+  selectedLevelNumber,
+  rulesetName
+}: {
+  build: Build | null;
+  plannedLevels: BuildLevel[];
+  selectedLevelNumber: number;
+  rulesetName: (id: string) => string;
+}): ReactElement {
+  const selectedLevel = plannedLevels.find((level) => level.levelNumber === selectedLevelNumber) ?? null;
+  const pathPreview = plannedLevels
+    .slice(0, 12)
+    .map((level) => classAbbreviation(level.className))
+    .join(' / ');
+
+  return (
+    <aside className="panel record-panel">
+      <div className="panel-header">
+        <div>
+          <h2>Build Record</h2>
+          <p>{build ? rulesetName(build.rulesetId) : 'No Build Plan selected'}</p>
+        </div>
+        {build && <span className="status-pill">{formatLabel(build.status)}</span>}
+      </div>
+      {build ? (
+        <div className="record-panel-body">
+          <div className="record-title compact">
+            <h3>{build.name}</h3>
+            <span>{build.intendedRole || build.intendedGame || 'Role not set'}</span>
+          </div>
+          <div className="record-stat-grid">
+            <StatTile label="Race" value={build.raceName || 'Unset'} />
+            <StatTile label="Class Split" value={build.classSummary || 'Unset'} />
+            <StatTile label="Level Cap" value={build.levelCap} />
+            <StatTile label="Selected Level" value={selectedLevel ? `${selectedLevel.levelNumber} ${selectedLevel.className}` : selectedLevelNumber} />
+          </div>
+          <section className="record-section">
+            <h3>Path Preview</h3>
+            <p>{pathPreview || 'No level entries yet.'}</p>
+          </section>
+        </div>
+      ) : (
+        <EmptyLine text="Select or create a Build Plan to see its record." />
+      )}
+    </aside>
+  );
+}
+
+function BuildHealthPanel({ health, issues }: { health: BuildHealth; issues: ValidationIssue[] }): ReactElement {
+  return (
+    <aside className="panel build-health">
+      <div className="panel-header">
+        <div>
+          <h2>Build Health</h2>
+          <p>{health.plannedLevelCount}/{health.levelCap || 0} levels planned</p>
+        </div>
+        <strong>{health.completionPercent}%</strong>
+      </div>
+      <div className="progress-track inline">
+        <div style={{ width: `${health.completionPercent}%` }} />
+      </div>
+      <div className="record-stat-grid">
+        <StatTile label="Feat Sources" value={health.featCount} />
+        <StatTile label="Auto Features" value={health.automaticFeatureCount} />
+        <StatTile label="Warnings" value={health.warningCount} tone={health.warningCount > 0 ? 'warn' : 'ok'} />
+        <StatTile label="Status" value={formatLabel(health.statusLabel)} />
+      </div>
+      <ul className="validation-list">
+        {issues.length === 0 ? (
+          <li className="validation-item info">
+            <strong>Ready</strong>
+            <span>No validation issues recorded.</span>
+          </li>
+        ) : (
+          issues.slice(0, 7).map((issue) => (
+            <li className={`validation-item ${issue.severity}`} key={issue.id}>
+              <strong>{issue.label}</strong>
+              <span>{issue.detail}</span>
+            </li>
+          ))
+        )}
+      </ul>
+    </aside>
+  );
+}
+
+function BuildReferencePanel({
+  selectedLevelNumber,
+  selectedFeats,
+  featureNotes,
+  skillEstimate,
+  openCompendium
+}: {
+  selectedLevelNumber: number;
+  selectedFeats: Array<FeatSelection | FeatSelectionInput>;
+  featureNotes: string[];
+  skillEstimate: SkillPointEstimate;
+  openCompendium: () => void;
+}): ReactElement {
+  return (
+    <aside className="panel record-panel">
+      <div className="panel-header">
+        <div>
+          <h2>Level {selectedLevelNumber} Choices</h2>
+          <p>Review source labels before saving the level.</p>
+        </div>
+      </div>
+      <div className="record-stat-grid">
+        <StatTile label="Skill Base" value={skillEstimate.classBase} />
+        <StatTile label="INT Mod" value={skillEstimate.intelligenceModifier >= 0 ? `+${skillEstimate.intelligenceModifier}` : skillEstimate.intelligenceModifier} />
+        <StatTile label="Available" value={skillEstimate.enteredAvailable ?? skillEstimate.estimatedAvailable} />
+        <StatTile label="Remaining" value={skillEstimate.remaining ?? 'Auto'} tone={skillEstimate.remaining !== null && skillEstimate.remaining < 0 ? 'warn' : 'ok'} />
+      </div>
+      <section className="record-section">
+        <h3>Feat Sources</h3>
+        {selectedFeats.length === 0 ? (
+          <p>No feat or feature choices recorded for this level.</p>
+        ) : (
+          <div className="chip-row">
+            {selectedFeats.map((feat, index) => (
+              <span className="chip passive source-chip" key={`${feat.featName}-${index}`} title={formatFeatSourceLabel(feat.source)}>
+                <SourceBadge source={feat.source} />
+                {feat.featName}
+              </span>
+            ))}
+          </div>
+        )}
+      </section>
+      <section className="record-section">
+        <h3>Automatic Features</h3>
+        {featureNotes.length === 0 ? (
+          <p>No automatic class features entered yet.</p>
+        ) : (
+          <div className="chip-row">
+            {featureNotes.map((feature) => (
+              <span className="chip passive feature-chip" key={feature}>
+                {feature}
+              </span>
+            ))}
+          </div>
+        )}
+      </section>
+      <button type="button" className="ghost" onClick={openCompendium}>
+        <BookOpen size={16} />
+        Search Compendium
+      </button>
+    </aside>
+  );
+}
+
+function StatTile({ label, value, tone }: { label: string; value: ReactNode; tone?: 'ok' | 'warn' }): ReactElement {
+  return (
+    <span className={tone ? `stat-tile ${tone}` : 'stat-tile'}>
+      <small>{label}</small>
+      <strong>{value}</strong>
+    </span>
   );
 }
 
@@ -1785,6 +2238,129 @@ function WikiView({
         </div>
       )}
     </div>
+  );
+}
+
+function CompendiumDrawer({
+  open,
+  onClose,
+  wikiSummary,
+  wikiSearchQuery,
+  setWikiSearchQuery,
+  wikiSearchResults,
+  selectedWikiPage,
+  wikiBusy,
+  wikiError,
+  onWikiSearch,
+  onWikiPageSelect,
+  onOpenFullCompendium
+}: {
+  open: boolean;
+  onClose: () => void;
+  wikiSummary: WikiLibrarySummary | null;
+  wikiSearchQuery: string;
+  setWikiSearchQuery: (value: string) => void;
+  wikiSearchResults: WikiSearchResult[];
+  selectedWikiPage: WikiPageDetail | null;
+  wikiBusy: boolean;
+  wikiError: string;
+  onWikiSearch: () => void;
+  onWikiPageSelect: (pageId: number) => void;
+  onOpenFullCompendium: () => void;
+}): ReactElement {
+  const hasLibrary = wikiSummary?.hasLibrary ?? false;
+
+  return (
+    <>
+      <button
+        type="button"
+        className={open ? 'drawer-scrim open' : 'drawer-scrim'}
+        onClick={onClose}
+        aria-label="Close Compendium drawer"
+        tabIndex={open ? 0 : -1}
+      />
+      <aside className={open ? 'compendium-drawer open' : 'compendium-drawer'} aria-hidden={!open}>
+        <div className="drawer-header">
+          <div>
+            <p className="eyebrow">Reference</p>
+            <h2>Compendium</h2>
+            <span>{hasLibrary ? `${wikiSummary?.articleCount.toLocaleString() ?? '0'} local articles` : 'Library unavailable'}</span>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Close Compendium drawer" title="Close">
+            <Check size={16} />
+          </button>
+        </div>
+
+        {wikiError && <div className="inline-error">{wikiError}</div>}
+
+        <form
+          className="wiki-search-form drawer-search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onWikiSearch();
+          }}
+        >
+          <div className="search-box">
+            <Search size={17} />
+            <input
+              value={wikiSearchQuery}
+              onChange={(event) => setWikiSearchQuery(event.target.value)}
+              placeholder="Search classes, feats, spells"
+              disabled={!hasLibrary}
+            />
+          </div>
+          <button type="submit" disabled={!hasLibrary || wikiBusy}>
+            <Search size={16} />
+          </button>
+        </form>
+
+        <div className="drawer-body">
+          <div className="wiki-results drawer-results" aria-label="Compendium drawer search results">
+            {wikiSearchResults.length === 0 ? (
+              <EmptyLine text={wikiBusy ? 'Searching...' : wikiSearchQuery.trim().length >= 2 ? 'No wiki matches.' : 'Search the local wiki.'} />
+            ) : (
+              wikiSearchResults.slice(0, 8).map((result) => (
+                <button
+                  key={result.pageId}
+                  type="button"
+                  className={selectedWikiPage?.pageId === result.pageId ? 'wiki-result active' : 'wiki-result'}
+                  onClick={() => onWikiPageSelect(result.pageId)}
+                >
+                  <strong>{result.title}</strong>
+                  <span>{result.snippet || 'No snippet available.'}</span>
+                </button>
+              ))
+            )}
+          </div>
+
+          <article className="drawer-page">
+            {selectedWikiPage ? (
+              <>
+                <div className="wiki-page-header compact">
+                  <div>
+                    <h3>{selectedWikiPage.title}</h3>
+                    <p>Revision {selectedWikiPage.revisionId}</p>
+                  </div>
+                  <a href={selectedWikiPage.sourceUrl} target="_blank" rel="noreferrer">
+                    Source
+                  </a>
+                </div>
+                <pre>{selectedWikiPage.plainText}</pre>
+              </>
+            ) : (
+              <EmptyLine text="Select a result to preview the article." />
+            )}
+          </article>
+        </div>
+
+        <div className="drawer-footer">
+          <button type="button" className="ghost" onClick={onOpenFullCompendium}>
+            <BookOpen size={16} />
+            Open Full Compendium
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }
 

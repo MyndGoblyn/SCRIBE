@@ -103,8 +103,109 @@ const previewData: AppData = {
       updatedAt: now
     }
   ],
-  buildLevels: [],
-  featSelections: [],
+  buildLevels: [
+    {
+      id: 'preview-level-1',
+      buildId: 'preview-build',
+      levelNumber: 1,
+      className: 'Fighter',
+      hitPointsGained: 10,
+      baseAttackBonus: 1,
+      fortitudeSave: 2,
+      reflexSave: 0,
+      willSave: 0,
+      skillPointsAvailable: 16,
+      skillAllocation: 'Discipline +4, Tumble +2, Persuade +2',
+      abilityIncrease: '',
+      spellSelections: '',
+      equipmentRecommendation: 'Greatsword and medium armor',
+      classFeatureNotes: 'Weapon and armor proficiency; Bonus feat',
+      notes: 'Opening martial chassis.',
+      validationWarnings: [],
+      createdAt: now,
+      updatedAt: now
+    },
+    {
+      id: 'preview-level-2',
+      buildId: 'preview-build',
+      levelNumber: 2,
+      className: 'Fighter',
+      hitPointsGained: 10,
+      baseAttackBonus: 2,
+      fortitudeSave: 3,
+      reflexSave: 0,
+      willSave: 0,
+      skillPointsAvailable: 4,
+      skillAllocation: 'Discipline +1, Tumble +1',
+      abilityIncrease: '',
+      spellSelections: '',
+      equipmentRecommendation: '',
+      classFeatureNotes: 'Bonus feat',
+      notes: '',
+      validationWarnings: [],
+      createdAt: now,
+      updatedAt: now
+    },
+    {
+      id: 'preview-level-3',
+      buildId: 'preview-build',
+      levelNumber: 3,
+      className: 'Rogue',
+      hitPointsGained: 6,
+      baseAttackBonus: 2,
+      fortitudeSave: 3,
+      reflexSave: 2,
+      willSave: 0,
+      skillPointsAvailable: 10,
+      skillAllocation: 'Tumble +5, Use Magic Device +3, Open Lock +2',
+      abilityIncrease: '',
+      spellSelections: '',
+      equipmentRecommendation: 'Trap kit and utility gear',
+      classFeatureNotes: 'Sneak attack; Trapfinding',
+      notes: 'Utility dip before Weapon Master requirements.',
+      validationWarnings: ['Confirm skill ranks against final server rules.'],
+      createdAt: now,
+      updatedAt: now
+    }
+  ],
+  featSelections: [
+    {
+      id: 'preview-feat-1',
+      buildLevelId: 'preview-level-1',
+      featName: 'Power Attack',
+      source: 'selected',
+      notes: '',
+      createdAt: now,
+      updatedAt: now
+    },
+    {
+      id: 'preview-feat-2',
+      buildLevelId: 'preview-level-1',
+      featName: 'Cleave',
+      source: 'human_bonus',
+      notes: '',
+      createdAt: now,
+      updatedAt: now
+    },
+    {
+      id: 'preview-feat-3',
+      buildLevelId: 'preview-level-2',
+      featName: 'Weapon Focus',
+      source: 'class_bonus',
+      notes: '',
+      createdAt: now,
+      updatedAt: now
+    },
+    {
+      id: 'preview-feat-4',
+      buildLevelId: 'preview-level-3',
+      featName: 'Server Weapon Training',
+      source: 'server_grant',
+      notes: 'Preview server feature.',
+      createdAt: now,
+      updatedAt: now
+    }
+  ],
   contentEntries: [],
   resourceLinks: [],
   dbPath: 'Preview mode'
