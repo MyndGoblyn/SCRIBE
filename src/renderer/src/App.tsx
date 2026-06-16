@@ -5,6 +5,7 @@ import {
   BookOpen,
   Calculator,
   Check,
+  CircleHelp,
   ClipboardList,
   Database,
   Download,
@@ -64,22 +65,52 @@ type View =
   | 'custom'
   | 'calculations'
   | 'export'
+  | 'help'
   | 'settings';
 
-const navItems: Array<{ id: View; label: string; icon: LucideIcon }> = [
-  { id: 'dashboard', label: 'Dashboard', icon: Home },
-  { id: 'characters', label: 'Characters', icon: UserRound },
-  { id: 'builds', label: 'Builds', icon: Layers3 },
-  { id: 'leveling', label: 'Leveling Guides', icon: ClipboardList },
-  { id: 'wiki', label: 'Wiki', icon: BookOpen },
-  { id: 'rules', label: 'Rules Library', icon: FileText },
-  { id: 'equipment', label: 'Equipment', icon: Shield },
-  { id: 'servers', label: 'Servers & Campaigns', icon: LinkIcon },
-  { id: 'custom', label: 'Custom Content', icon: Sparkles },
-  { id: 'calculations', label: 'Calculations', icon: Calculator },
-  { id: 'export', label: 'Import / Export', icon: Download },
-  { id: 'settings', label: 'Settings', icon: Settings }
+type NavItem = { id: View; label: string; icon: LucideIcon };
+type NavGroup = { label: string; items: NavItem[] };
+
+const navGroups: NavGroup[] = [
+  {
+    label: 'Command',
+    items: [{ id: 'dashboard', label: 'Dashboard', icon: Home }]
+  },
+  {
+    label: 'Build Studio',
+    items: [
+      { id: 'characters', label: 'Characters', icon: UserRound },
+      { id: 'builds', label: 'Builds', icon: Layers3 },
+      { id: 'leveling', label: 'Leveling Guides', icon: ClipboardList },
+      { id: 'calculations', label: 'Calculations', icon: Calculator }
+    ]
+  },
+  {
+    label: 'Reference',
+    items: [
+      { id: 'wiki', label: 'Wiki', icon: BookOpen },
+      { id: 'rules', label: 'Rules Library', icon: FileText },
+      { id: 'custom', label: 'Custom Content', icon: Sparkles },
+      { id: 'equipment', label: 'Equipment', icon: Shield }
+    ]
+  },
+  {
+    label: 'World',
+    items: [
+      { id: 'servers', label: 'Servers & Campaigns', icon: LinkIcon },
+      { id: 'export', label: 'Import / Export', icon: Download }
+    ]
+  },
+  {
+    label: 'System',
+    items: [
+      { id: 'help', label: 'Help', icon: CircleHelp },
+      { id: 'settings', label: 'Settings', icon: Settings }
+    ]
+  }
 ];
+
+const navItems = navGroups.flatMap((group) => group.items);
 
 const featSources: Array<{ value: FeatSource; label: string }> = [
   { value: 'selected', label: 'Selected Feat' },
@@ -553,6 +584,8 @@ export function App(): ReactElement {
   const buildLevelCount = (buildId: string): number => data.buildLevels.filter((level) => level.buildId === buildId).length;
   const warningCount = data.buildLevels.reduce((total, level) => total + level.validationWarnings.length, 0);
   const incompleteLevelCount = data.builds.reduce((total, build) => total + Math.max(build.levelCap - buildLevelCount(build.id), 0), 0);
+  const activeNavItem = navItems.find((item) => item.id === activeView);
+  const activeNavGroup = navGroups.find((group) => group.items.some((item) => item.id === activeView));
 
   return (
     <div className="app-shell">
@@ -562,36 +595,42 @@ export function App(): ReactElement {
           <img src={scribeEmblemUrl} alt="" />
           <div>
             <strong>SCRIBE</strong>
-            <span>Build workshop</span>
+            <span>Compendium & build studio</span>
           </div>
         </div>
         <nav className="nav-list" aria-label="Main navigation">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                className={activeView === item.id ? 'nav-item active' : 'nav-item'}
-                onClick={() => setActiveView(item.id)}
-              >
-                <Icon size={18} />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
+          {navGroups.map((group) => (
+            <section className="nav-group" key={group.label}>
+              <p className="nav-group-label">{group.label}</p>
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    data-view={item.id}
+                    className={activeView === item.id ? 'nav-item active' : 'nav-item'}
+                    onClick={() => setActiveView(item.id)}
+                  >
+                    <Icon size={18} />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </section>
+          ))}
         </nav>
       </aside>
 
       <main className="workspace">
         <header className="topbar">
           <div>
-            <p className="eyebrow">Local-first NWN:EE MVP</p>
-            <h1>{navItems.find((item) => item.id === activeView)?.label}</h1>
+            <p className="eyebrow">{activeNavGroup?.label ?? 'Workspace'}</p>
+            <h1>{activeNavItem?.label ?? 'SCRIBE'}</h1>
           </div>
           <div className="search-box">
             <Search size={17} />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search characters, builds, rules, resources" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search workspace records" />
           </div>
           <button className="icon-button" type="button" onClick={() => void refresh()} title="Refresh workspace" aria-label="Refresh workspace">
             <RefreshCw size={18} />
@@ -811,6 +850,8 @@ export function App(): ReactElement {
             />
           )}
 
+          {activeView === 'help' && <HelpView setActiveView={setActiveView} />}
+
           {activeView === 'settings' && (
             <SettingsView
               data={data}
@@ -872,7 +913,7 @@ function Dashboard({
         <div className="panel-header">
           <div>
             <h2>Quick Create</h2>
-            <p>Start from the workflows the PDD marks as MVP-critical.</p>
+            <p>Jump into the tools used most often during character planning.</p>
           </div>
         </div>
         <div className="button-row">
@@ -891,6 +932,10 @@ function Dashboard({
           <button type="button" onClick={() => setActiveView('servers')}>
             <LinkIcon size={16} />
             Resource
+          </button>
+          <button type="button" className="ghost" onClick={() => setActiveView('help')}>
+            <CircleHelp size={16} />
+            Help
           </button>
         </div>
       </section>
@@ -1976,6 +2021,123 @@ function ExportView({
         </div>
       </section>
       <pre className="markdown-preview">{markdown || 'Select a build and generate a preview.'}</pre>
+    </div>
+  );
+}
+
+function HelpView({ setActiveView }: { setActiveView: (view: View) => void }): ReactElement {
+  const helpDetails: Record<View, { summary: string; details: string }> = {
+    dashboard: {
+      summary: 'A command desk for recent work, counts, warnings, and fast entry into common actions.',
+      details: 'Use it when opening SCRIBE to see what exists, what needs planning attention, and where the local database lives.'
+    },
+    characters: {
+      summary: 'Stores playable characters separately from reusable build templates.',
+      details: 'Track race, class split, level, status, ability scores, assigned build, server, and notes without overwriting planning records.'
+    },
+    builds: {
+      summary: 'Creates reusable character plans before they are attached to a specific character.',
+      details: 'Use builds for intended role, class split, level cap, tags, server context, and notes that can later feed level guides and exports.'
+    },
+    leveling: {
+      summary: 'Turns a build into a level-by-level guide.',
+      details: 'Record class choices, feat sources, ability increases, saves, skills, spells, equipment notes, automatic features, and warnings for each level.'
+    },
+    calculations: {
+      summary: 'Shows transparent math for ability modifiers, spell DCs, and saving throw examples.',
+      details: 'Use it as a visible calculator while planning builds; later slices can expand these traces into deeper rules-aware comparisons.'
+    },
+    wiki: {
+      summary: 'Searches the built-in NWNWiki library from inside SCRIBE.',
+      details: 'Use this for vanilla NWN article lookup when you need classes, feats, spells, items, or rules information without leaving the app.'
+    },
+    rules: {
+      summary: 'Stores structured rule notes and mechanics you want to keep private.',
+      details: 'Use it for manual entries such as feats, spells, rules, formulas, classes, domains, items, conditions, and other searchable references.'
+    },
+    custom: {
+      summary: 'Captures server-specific or homebrew material in the same structured library.',
+      details: 'Use it for overrides, custom rules, private campaign content, and notes that should stay distinct from the built-in wiki library.'
+    },
+    equipment: {
+      summary: 'Reserved for item records and gear planning.',
+      details: 'The database foundation is in place; the next equipment slice should add item CRUD, gear sets, slot assignment, and stat impact traces.'
+    },
+    servers: {
+      summary: 'Organizes server, campaign, and resource context.',
+      details: 'Create profiles with site, wiki, Discord, level cap, and notes, then store related links so build decisions keep their source context.'
+    },
+    export: {
+      summary: 'Builds readable Markdown guides from saved plans.',
+      details: 'Select a build, preview the generated guide, and save it as a shareable document when the level plan is ready.'
+    },
+    help: {
+      summary: 'Explains SCRIBE’s workflow and each navigation area.',
+      details: 'Start here when a screen name is unclear or when you want to understand how character planning, reference, and export fit together.'
+    },
+    settings: {
+      summary: 'Shows workspace configuration and update status.',
+      details: 'Use Settings to review the default ruleset, local SQLite workspace, source counts, and GitHub release update checks.'
+    }
+  };
+
+  const workflowSteps = [
+    { title: 'Plan', body: 'Create a build, assign a class split, and use Leveling Guides for the level-by-level path.' },
+    { title: 'Reference', body: 'Search Wiki for vanilla NWN details and store private notes in Rules Library or Custom Content.' },
+    { title: 'Apply', body: 'Attach builds to characters, keep server context nearby, and use Calculations to check visible math.' },
+    { title: 'Share', body: 'Export a Markdown build guide once the plan is ready to hand off or archive.' }
+  ];
+
+  return (
+    <div className="stack help-view">
+      <section className="panel help-hero">
+        <div>
+          <p className="eyebrow">How It Works</p>
+          <h2>SCRIBE keeps planning, reference, and output in one local workspace.</h2>
+          <p>
+            The app is organized around the way a Neverwinter Nights build usually comes together: start with a plan, check the reference material, record
+            server-specific details, then export the result when it is ready.
+          </p>
+        </div>
+        <div className="help-flow" aria-label="SCRIBE workflow">
+          {workflowSteps.map((step, index) => (
+            <div className="help-step" key={step.title}>
+              <span>{index + 1}</span>
+              <strong>{step.title}</strong>
+              <p>{step.body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="help-grid">
+        {navGroups.map((group) => (
+          <section className="panel help-section" key={group.label}>
+            <div className="panel-header">
+              <div>
+                <h2>{group.label}</h2>
+                <p>{group.items.length === 1 ? 'Primary workspace entry point.' : `${group.items.length} related tools grouped together.`}</p>
+              </div>
+            </div>
+            <div className="help-link-list">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const copy = helpDetails[item.id];
+                return (
+                  <button key={item.id} type="button" data-view={item.id} className="help-link-row" onClick={() => setActiveView(item.id)}>
+                    <Icon size={18} />
+                    <span>
+                      <strong>{item.label}</strong>
+                      <small>{copy.summary}</small>
+                      <em>{copy.details}</em>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
     </div>
   );
 }
