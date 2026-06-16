@@ -6,20 +6,17 @@ import {
   Calculator,
   Check,
   CircleHelp,
-  ClipboardList,
   Database,
   Download,
   FileText,
   Home,
   Layers3,
-  Link as LinkIcon,
   Plus,
   RefreshCw,
   Save,
   Search,
   Settings,
   Shield,
-  Sparkles,
   UserRound
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -77,35 +74,30 @@ const navGroups: NavGroup[] = [
     items: [{ id: 'dashboard', label: 'Dashboard', icon: Home }]
   },
   {
-    label: 'Build Studio',
+    label: 'Creation',
     items: [
-      { id: 'characters', label: 'Characters', icon: UserRound },
-      { id: 'builds', label: 'Builds', icon: Layers3 },
-      { id: 'leveling', label: 'Leveling Guides', icon: ClipboardList },
-      { id: 'calculations', label: 'Calculations', icon: Calculator }
+      { id: 'characters', label: 'Character Records', icon: UserRound },
+      { id: 'builds', label: 'Build Forge', icon: Layers3 }
     ]
   },
   {
     label: 'Reference',
     items: [
-      { id: 'wiki', label: 'Wiki', icon: BookOpen },
-      { id: 'rules', label: 'Rules Library', icon: FileText },
-      { id: 'custom', label: 'Custom Content', icon: Sparkles },
-      { id: 'equipment', label: 'Equipment', icon: Shield }
+      { id: 'wiki', label: 'Compendium', icon: BookOpen },
+      { id: 'rules', label: 'Server Rules', icon: FileText },
+      { id: 'equipment', label: 'Equipment', icon: Shield },
+      { id: 'calculations', label: 'Calculations', icon: Calculator }
     ]
   },
   {
-    label: 'World',
-    items: [
-      { id: 'servers', label: 'Servers & Campaigns', icon: LinkIcon },
-      { id: 'export', label: 'Import / Export', icon: Download }
-    ]
+    label: 'Output',
+    items: [{ id: 'export', label: 'Import / Export', icon: Download }]
   },
   {
     label: 'System',
     items: [
-      { id: 'help', label: 'Help', icon: CircleHelp },
-      { id: 'settings', label: 'Settings', icon: Settings }
+      { id: 'settings', label: 'Settings', icon: Settings },
+      { id: 'help', label: 'Help', icon: CircleHelp }
     ]
   }
 ];
@@ -356,7 +348,7 @@ export function App(): ReactElement {
         detail: `${item.raceName || 'No race'} - ${item.classSummary || 'No class split'}`
       })),
       ...data.builds.map((item) => ({
-        type: 'Build',
+        type: 'Build Plan',
         title: item.name,
         detail: `${item.intendedRole || 'No role'} - ${item.classSummary || 'No class split'}`
       })),
@@ -595,7 +587,7 @@ export function App(): ReactElement {
           <img src={scribeEmblemUrl} alt="" />
           <div>
             <strong>SCRIBE</strong>
-            <span>Compendium & build studio</span>
+            <span>Compendium & Build Forge</span>
           </div>
         </div>
         <nav className="nav-list" aria-label="Main navigation">
@@ -696,10 +688,10 @@ export function App(): ReactElement {
             />
           )}
 
-          {(activeView === 'builds' || activeView === 'leveling') && (
+          {activeView === 'builds' && (
             <BuildsView
               data={data}
-              mode={activeView}
+              mode="builds"
               selectedBuildId={selectedBuildId}
               setSelectedBuildId={setSelectedBuildId}
               selectedLevelNumber={selectedLevelNumber}
@@ -731,7 +723,7 @@ export function App(): ReactElement {
                     setExportBuildId(build.id);
                   }
                   resetBuildForm();
-                }, selectedBuildId ? 'Build saved.' : 'Build created.')
+                }, selectedBuildId ? 'Build Plan saved.' : 'Build Plan created.')
               }
               onLevelSubmit={() =>
                 runAction(async () => {
@@ -755,28 +747,58 @@ export function App(): ReactElement {
             />
           )}
 
-          {(activeView === 'rules' || activeView === 'custom') && (
-            <RulesView
-              data={data}
-              contentForm={contentForm}
-              setContentForm={setContentForm}
-              contentTagsText={contentTagsText}
-              setContentTagsText={setContentTagsText}
-              rulesetName={rulesetName}
-              sourceName={sourceName}
-              busy={busy}
-              onSubmit={() =>
-                runAction(async () => {
-                  await scribeApi.createContentEntry({
-                    ...contentForm,
-                    sourceId: maybeNull(contentForm.sourceId),
-                    tags: splitTags(contentTagsText)
-                  });
-                  setContentForm(cloneContentForm(defaultRulesetId, manualSourceId));
-                  setContentTagsText('');
-                }, 'Rules entry added.')
-              }
-            />
+          {activeView === 'rules' && (
+            <div className="stack">
+              <ServersView
+                data={data}
+                serverForm={serverForm}
+                setServerForm={setServerForm}
+                resourceForm={resourceForm}
+                setResourceForm={setResourceForm}
+                resourceTagsText={resourceTagsText}
+                setResourceTagsText={setResourceTagsText}
+                rulesetName={rulesetName}
+                busy={busy}
+                onServerSubmit={() =>
+                  runAction(async () => {
+                    await scribeApi.createServerProfile(serverForm);
+                    setServerForm({ ...defaultServerForm, rulesetId: defaultRulesetId });
+                  }, 'Server profile created.')
+                }
+                onResourceSubmit={() =>
+                  runAction(async () => {
+                    await scribeApi.createResourceLink({
+                      ...resourceForm,
+                      serverProfileId: maybeNull(resourceForm.serverProfileId),
+                      tags: splitTags(resourceTagsText)
+                    });
+                    setResourceForm(defaultResourceForm);
+                    setResourceTagsText('');
+                  }, 'Resource link stored.')
+                }
+              />
+              <RulesView
+                data={data}
+                contentForm={contentForm}
+                setContentForm={setContentForm}
+                contentTagsText={contentTagsText}
+                setContentTagsText={setContentTagsText}
+                rulesetName={rulesetName}
+                sourceName={sourceName}
+                busy={busy}
+                onSubmit={() =>
+                  runAction(async () => {
+                    await scribeApi.createContentEntry({
+                      ...contentForm,
+                      sourceId: maybeNull(contentForm.sourceId),
+                      tags: splitTags(contentTagsText)
+                    });
+                    setContentForm(cloneContentForm(defaultRulesetId, manualSourceId));
+                    setContentTagsText('');
+                  }, 'Server rule entry added.')
+                }
+              />
+            </div>
           )}
 
           {activeView === 'servers' && (
@@ -904,7 +926,7 @@ function Dashboard({
     <div className="stack">
       <div className="metric-grid">
         <Metric label="Characters" value={data.characters.length} />
-        <Metric label="Builds" value={data.builds.length} />
+        <Metric label="Build Plans" value={data.builds.length} />
         <Metric label="Open Levels" value={incompleteLevelCount} />
         <Metric label="Warnings" value={warningCount} tone={warningCount > 0 ? 'warn' : 'ok'} />
       </div>
@@ -913,25 +935,21 @@ function Dashboard({
         <div className="panel-header">
           <div>
             <h2>Quick Create</h2>
-            <p>Jump into the tools used most often during character planning.</p>
+            <p>Jump into the core SCRIBE flows for character tracking and reusable guide creation.</p>
           </div>
         </div>
         <div className="button-row">
           <button type="button" onClick={() => setActiveView('characters')}>
             <Plus size={16} />
-            Character
+            Character Record
           </button>
           <button type="button" onClick={() => setActiveView('builds')}>
             <Plus size={16} />
-            Build
+            Build Forge
           </button>
-          <button type="button" onClick={() => setActiveView('leveling')}>
-            <ClipboardList size={16} />
-            Level Plan
-          </button>
-          <button type="button" onClick={() => setActiveView('servers')}>
-            <LinkIcon size={16} />
-            Resource
+          <button type="button" onClick={() => setActiveView('rules')}>
+            <FileText size={16} />
+            Server Rules
           </button>
           <button type="button" className="ghost" onClick={() => setActiveView('help')}>
             <CircleHelp size={16} />
@@ -964,11 +982,11 @@ function Dashboard({
 
         <section className="panel">
           <div className="panel-header">
-            <h2>Active Builds</h2>
+            <h2>Active Build Plans</h2>
           </div>
           <div className="list">
             {data.builds.length === 0 ? (
-              <EmptyLine text="No builds yet." />
+              <EmptyLine text="No build plans yet." />
             ) : (
               data.builds.slice(0, 5).map((build) => (
                 <div className="list-row" key={build.id}>
@@ -1023,8 +1041,8 @@ function CharactersView({
       <section className="panel">
         <div className="panel-header">
           <div>
-            <h2>{selectedCharacterId ? 'Edit Character' : 'Create Character'}</h2>
-            <p>Track planned and actual state without forcing either one to overwrite the other.</p>
+            <h2>{selectedCharacterId ? 'Edit Character Record' : 'Create Character Record'}</h2>
+            <p>Track an actual character instance and optionally assign a reusable Build Plan as its guide.</p>
           </div>
           {selectedCharacterId && (
             <button type="button" className="ghost" onClick={resetCharacterForm}>
@@ -1065,7 +1083,7 @@ function CharactersView({
               ))}
             </select>
           </Field>
-          <Field label="Assigned Build">
+          <Field label="Assigned Guide">
             <select value={characterForm.buildId ?? ''} onChange={(event) => setCharacterForm((form) => ({ ...form, buildId: maybeNull(event.target.value) }))}>
               <option value="">None</option>
               {data.builds.map((build) => (
@@ -1156,7 +1174,7 @@ function CharactersView({
 
       <section className="panel">
         <div className="panel-header">
-          <h2>Character Database</h2>
+          <h2>Character Records</h2>
         </div>
         <DataTable
           headers={['Name', 'Ruleset', 'Level', 'Build', 'Status', 'Updated', '']}
@@ -1241,8 +1259,8 @@ function BuildsView({
           <section className="panel">
             <div className="panel-header">
               <div>
-                <h2>{selectedBuildId && data.builds.some((build) => build.id === selectedBuildId) ? 'Edit Build' : 'Create Build'}</h2>
-                <p>Reusable plans stay separate from actual characters, matching the PDD model.</p>
+                <h2>{selectedBuildId && data.builds.some((build) => build.id === selectedBuildId) ? 'Edit Build Plan' : 'Create Build Plan'}</h2>
+                <p>A Build Plan is a reusable Leveling Guide that can be assigned to one or more Character Records.</p>
               </div>
               <button type="button" className="ghost" onClick={resetBuildForm}>
                 <Plus size={16} />
@@ -1256,7 +1274,7 @@ function BuildsView({
                 onBuildSubmit();
               }}
             >
-              <Field label="Build Name">
+              <Field label="Plan Name">
                 <input value={buildForm.name} onChange={(event) => setBuildForm((form) => ({ ...form, name: event.target.value }))} required />
               </Field>
               <Field label="Ruleset">
@@ -1311,7 +1329,7 @@ function BuildsView({
               <div className="form-actions">
                 <button type="submit" disabled={busy}>
                   <Save size={16} />
-                  Save Build
+                  Save Build Plan
                 </button>
               </div>
             </form>
@@ -1319,11 +1337,11 @@ function BuildsView({
 
           <section className="panel">
             <div className="panel-header">
-              <h2>Build Library</h2>
+              <h2>Build Plan Library</h2>
             </div>
             <DataTable
-              headers={['Name', 'Ruleset', 'Role', 'Class Split', 'Levels', 'Status', '']}
-              empty="No builds created yet."
+              headers={['Name', 'Ruleset', 'Role', 'Class Split', 'Level Path', 'Status', '']}
+              empty="No build plans created yet."
               rows={data.builds.map((build) => [
                 build.name,
                 rulesetName(build.rulesetId),
@@ -1343,11 +1361,11 @@ function BuildsView({
       <section className="panel">
         <div className="panel-header">
           <div>
-            <h2>Leveling Guide Builder</h2>
-            <p>Plan each level and preserve feat/feature source labels.</p>
+            <h2>Level Path</h2>
+            <p>Plan each level inside the Build Plan and preserve feat/feature source labels.</p>
           </div>
           <select value={selectedBuild?.id ?? ''} onChange={(event) => setSelectedBuildId(event.target.value || null)} className="compact-select">
-            <option value="">Select build</option>
+            <option value="">Select Build Plan</option>
             {data.builds.map((build) => (
               <option key={build.id} value={build.id}>
                 {build.name}
@@ -1357,10 +1375,10 @@ function BuildsView({
         </div>
 
         {!selectedBuild ? (
-          <EmptyLine text="Create a build before adding level entries." />
+          <EmptyLine text="Create a Build Plan before adding level entries." />
         ) : (
           <div className="level-planner">
-            <div className="level-grid" aria-label="Build levels">
+            <div className="level-grid" aria-label="Build Plan levels">
               {levels.map((levelNumber) => {
                 const planned = plannedLevels.some((level) => level.levelNumber === levelNumber);
                 return (
@@ -1548,7 +1566,7 @@ function RulesView({
       <section className="panel">
         <div className="panel-header">
           <div>
-            <h2>Add Rules or Custom Content</h2>
+            <h2>Add Server Rule or Reference Note</h2>
             <p>Every entry carries ruleset and source metadata from the beginning.</p>
           </div>
         </div>
@@ -1624,7 +1642,7 @@ function RulesView({
 
       <section className="panel">
         <div className="panel-header">
-          <h2>Rules Library</h2>
+          <h2>Server Rules Library</h2>
         </div>
         <DataTable
           headers={['Name', 'Type', 'Ruleset', 'Source', 'Export', 'Updated']}
@@ -1671,10 +1689,10 @@ function WikiView({
       <section className="panel wiki-search-panel">
         <div className="panel-header">
           <div>
-            <h2>NWNWiki</h2>
+            <h2>Compendium</h2>
             <p>
               {hasLibrary
-                ? `Search ${wikiSummary?.articleCount.toLocaleString() ?? '0'} built-in articles from NWNWiki.`
+                ? `Search ${wikiSummary?.articleCount.toLocaleString() ?? '0'} built-in NWNWiki articles.`
                 : 'The built-in wiki is not available in this build.'}
             </p>
           </div>
@@ -1800,7 +1818,7 @@ function ServersView({
       <div className="two-column">
         <section className="panel">
           <div className="panel-header">
-            <h2>Server Profile</h2>
+            <h2>Server / Campaign Profile</h2>
           </div>
           <form
             className="form-grid single"
@@ -1847,7 +1865,7 @@ function ServersView({
 
         <section className="panel">
           <div className="panel-header">
-            <h2>Resource Link</h2>
+            <h2>Reference Link</h2>
           </div>
           <form
             className="form-grid single"
@@ -1997,11 +2015,11 @@ function ExportView({
       <section className="panel">
         <div className="panel-header">
           <div>
-            <h2>Markdown Build Guide</h2>
-            <p>The first export path focuses on readable build guides, which the PDD marks as MVP.</p>
+            <h2>Markdown Leveling Guide</h2>
+            <p>Export a readable guide from the selected Build Plan and its level path.</p>
           </div>
           <select value={exportBuildId ?? ''} onChange={(event) => setExportBuildId(event.target.value || null)} className="compact-select">
-            <option value="">Select build</option>
+            <option value="">Select Build Plan</option>
             {data.builds.map((build) => (
               <option key={build.id} value={build.id}>
                 {build.name}
@@ -2020,7 +2038,7 @@ function ExportView({
           </button>
         </div>
       </section>
-      <pre className="markdown-preview">{markdown || 'Select a build and generate a preview.'}</pre>
+      <pre className="markdown-preview">{markdown || 'Select a Build Plan and generate a preview.'}</pre>
     </div>
   );
 }
@@ -2032,28 +2050,28 @@ function HelpView({ setActiveView }: { setActiveView: (view: View) => void }): R
       details: 'Use it when opening SCRIBE to see what exists, what needs planning attention, and where the local database lives.'
     },
     characters: {
-      summary: 'Stores playable characters separately from reusable build templates.',
-      details: 'Track race, class split, level, status, ability scores, assigned build, server, and notes without overwriting planning records.'
+      summary: 'Stores actual character instances separately from reusable Build Plans.',
+      details: 'Track race, class split, level, status, ability scores, assigned guide, server, and notes without overwriting planning records.'
     },
     builds: {
-      summary: 'Creates reusable character plans before they are attached to a specific character.',
-      details: 'Use builds for intended role, class split, level cap, tags, server context, and notes that can later feed level guides and exports.'
+      summary: 'Opens Build Forge, where Build Plan metadata and the Level Path live together.',
+      details: 'Use it for intended role, class split, level cap, tags, server context, level-by-level choices, warnings, and guide export readiness.'
     },
     leveling: {
-      summary: 'Turns a build into a level-by-level guide.',
-      details: 'Record class choices, feat sources, ability increases, saves, skills, spells, equipment notes, automatic features, and warnings for each level.'
+      summary: 'Folded into Build Forge.',
+      details: 'Leveling Guide work now belongs inside the Build Plan so the reusable guide is one artifact instead of a separate workspace.'
     },
     calculations: {
       summary: 'Shows transparent math for ability modifiers, spell DCs, and saving throw examples.',
-      details: 'Use it as a visible calculator while planning builds; later slices can expand these traces into deeper rules-aware comparisons.'
+      details: 'Use it as a visible calculator while planning Build Plans; later slices can expand these traces into deeper rules-aware comparisons.'
     },
     wiki: {
       summary: 'Searches the built-in NWNWiki library from inside SCRIBE.',
       details: 'Use this for vanilla NWN article lookup when you need classes, feats, spells, items, or rules information without leaving the app.'
     },
     rules: {
-      summary: 'Stores structured rule notes and mechanics you want to keep private.',
-      details: 'Use it for manual entries such as feats, spells, rules, formulas, classes, domains, items, conditions, and other searchable references.'
+      summary: 'Keeps server profiles, resource links, and private rule notes together.',
+      details: 'Use it for server context, overrides, formulas, house rules, and manual mechanics that affect Character Records or Build Plans.'
     },
     custom: {
       summary: 'Captures server-specific or homebrew material in the same structured library.',
@@ -2068,8 +2086,8 @@ function HelpView({ setActiveView }: { setActiveView: (view: View) => void }): R
       details: 'Create profiles with site, wiki, Discord, level cap, and notes, then store related links so build decisions keep their source context.'
     },
     export: {
-      summary: 'Builds readable Markdown guides from saved plans.',
-      details: 'Select a build, preview the generated guide, and save it as a shareable document when the level plan is ready.'
+      summary: 'Builds readable Markdown Leveling Guides from saved Build Plans.',
+      details: 'Select a Build Plan, preview the generated guide, and save it as a shareable document when the level path is ready.'
     },
     help: {
       summary: 'Explains SCRIBE’s workflow and each navigation area.',
@@ -2082,10 +2100,10 @@ function HelpView({ setActiveView }: { setActiveView: (view: View) => void }): R
   };
 
   const workflowSteps = [
-    { title: 'Plan', body: 'Create a build, assign a class split, and use Leveling Guides for the level-by-level path.' },
-    { title: 'Reference', body: 'Search Wiki for vanilla NWN details and store private notes in Rules Library or Custom Content.' },
-    { title: 'Apply', body: 'Attach builds to characters, keep server context nearby, and use Calculations to check visible math.' },
-    { title: 'Share', body: 'Export a Markdown build guide once the plan is ready to hand off or archive.' }
+    { title: 'Plan', body: 'Use Build Forge to create one reusable Build Plan with metadata and a level-by-level path.' },
+    { title: 'Reference', body: 'Search Compendium for vanilla NWN details and store private overrides in Server Rules.' },
+    { title: 'Apply', body: 'Assign Build Plans to Character Records and keep server context nearby.' },
+    { title: 'Share', body: 'Export a Markdown Leveling Guide once the Build Plan is ready to hand off or archive.' }
   ];
 
   return (
@@ -2095,8 +2113,8 @@ function HelpView({ setActiveView }: { setActiveView: (view: View) => void }): R
           <p className="eyebrow">How It Works</p>
           <h2>SCRIBE keeps planning, reference, and output in one local workspace.</h2>
           <p>
-            The app is organized around the way a Neverwinter Nights build usually comes together: start with a plan, check the reference material, record
-            server-specific details, then export the result when it is ready.
+            SCRIBE is organized around three artifacts: Character Records, reusable Build Plans, and reference content. Build Forge is where the Leveling Guide
+            and its level path live together.
           </p>
         </div>
         <div className="help-flow" aria-label="SCRIBE workflow">
