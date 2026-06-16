@@ -155,10 +155,13 @@ export class WikiDatabase {
       return;
     }
 
+    const localStats = fs.existsSync(this.dbPath) ? fs.statSync(this.dbPath) : null;
+    const bundledStats = fs.statSync(this.bundledDbPath);
     const shouldCopy =
-      !fs.existsSync(this.dbPath) ||
-      fs.statSync(this.dbPath).size < 1024 * 1024 ||
-      fs.statSync(this.bundledDbPath).mtimeMs > fs.statSync(this.dbPath).mtimeMs;
+      !localStats ||
+      localStats.size < 1024 * 1024 ||
+      localStats.size !== bundledStats.size ||
+      bundledStats.mtimeMs > localStats.mtimeMs;
 
     if (!shouldCopy) {
       return;
