@@ -95,6 +95,14 @@ const previewData: AppData = {
       intendedGame: 'NWN:EE',
       raceName: 'Human',
       classSummary: 'Fighter 12 / Weapon Master 7 / Rogue 1',
+      abilityScores: {
+        strength: 16,
+        dexterity: 13,
+        constitution: 14,
+        intelligence: 12,
+        wisdom: 10,
+        charisma: 8
+      },
       levelCap: 40,
       status: 'draft',
       tags: ['PvE', 'Weapon Master'],

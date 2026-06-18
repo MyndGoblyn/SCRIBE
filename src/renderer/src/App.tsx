@@ -350,6 +350,7 @@ const defaultBuildForm: BuildInput = {
   intendedGame: '',
   raceName: '',
   classSummary: '',
+  abilityScores: defaultAbilityScores,
   levelCap: 40,
   status: 'draft',
   tags: [],
@@ -422,7 +423,7 @@ function cloneCharacterForm(rulesetId = ''): CharacterInput {
 }
 
 function cloneBuildForm(rulesetId = ''): BuildInput {
-  return { ...defaultBuildForm, rulesetId, tags: [] };
+  return { ...defaultBuildForm, rulesetId, abilityScores: { ...defaultAbilityScores }, tags: [] };
 }
 
 function cloneContentForm(rulesetId = '', sourceId: string | null = null): ContentEntryInput {
@@ -735,6 +736,7 @@ export function App(): ReactElement {
       intendedGame: build.intendedGame,
       raceName: build.raceName,
       classSummary: build.classSummary,
+      abilityScores: { ...build.abilityScores },
       levelCap: build.levelCap,
       status: build.status,
       tags: build.tags,
@@ -1614,11 +1616,15 @@ function BuildsView({
   const selectedBuildFeats = data.featSelections.filter((feat) => selectedBuildLevelIds.has(feat.buildLevelId));
   const selectedLevelEntity = plannedLevels.find((level) => level.levelNumber === selectedLevelNumber) ?? null;
   const selectedLevelFeats = selectedLevelEntity ? data.featSelections.filter((feat) => feat.buildLevelId === selectedLevelEntity.id) : levelForm.featSelections;
+  const [buildPane, setBuildPane] = useState<'library' | 'editor'>('library');
+  const buildMetricsSource =
+    buildPane === 'editor' && (!selectedBuild || selectedBuild.id === selectedBuildId) && buildForm.name.trim().length > 0
+      ? buildForm
+      : selectedBuild ?? buildForm;
   const forgeSteps = getBuildForgeSteps(selectedBuild ?? buildForm, plannedLevels);
   const buildHealth = getBuildHealth(selectedBuild, plannedLevels, selectedBuildFeats);
   const guideSections = selectedBuild ? getBuildLevelGuideSections(selectedBuild.levelCap, plannedLevels, selectedBuildFeats) : [];
-  const skillEstimate = estimateSkillPoints(levelForm, selectedBuild ?? buildForm);
-  const [buildPane, setBuildPane] = useState<'library' | 'editor'>('library');
+  const skillEstimate = estimateSkillPoints(levelForm, buildMetricsSource);
   const [activePicker, setActivePicker] = useState<'feat' | 'skill' | 'spell' | null>(null);
   const [pickerQuery, setPickerQuery] = useState('');
   const [spellSchoolFilter, setSpellSchoolFilter] = useState<(typeof spellSchools)[number]>('All');
@@ -1643,9 +1649,48 @@ function BuildsView({
     });
   }, [pickerQuery, spellSchoolFilter, spellTraditionFilter]);
   const autoMetrics = useMemo(
-    () => getAutoLevelMetrics(levelForm, selectedBuild ?? buildForm, plannedLevels.filter((level) => level.levelNumber !== levelForm.levelNumber)),
-    [buildForm, levelForm, plannedLevels, selectedBuild]
+    () => getAutoLevelMetrics(levelForm, buildMetricsSource, plannedLevels.filter((level) => level.levelNumber !== levelForm.levelNumber)),
+    [buildMetricsSource, levelForm, plannedLevels]
   );
+
+  useEffect(() => {
+    if (!levelForm.className.trim()) return;
+    setLevelForm((form) => {
+      if (form.levelNumber !== levelForm.levelNumber || form.className !== levelForm.className) return form;
+      const nextMetrics = {
+        hitPointsGained: autoMetrics.hitPointsGained,
+        baseAttackBonus: autoMetrics.baseAttackBonus,
+        fortitudeSave: autoMetrics.fortitudeSave,
+        reflexSave: autoMetrics.reflexSave,
+        willSave: autoMetrics.willSave,
+        skillPointsAvailable: autoMetrics.skillPointsAvailable
+      };
+      if (
+        form.hitPointsGained === nextMetrics.hitPointsGained &&
+        form.baseAttackBonus === nextMetrics.baseAttackBonus &&
+        form.fortitudeSave === nextMetrics.fortitudeSave &&
+        form.reflexSave === nextMetrics.reflexSave &&
+        form.willSave === nextMetrics.willSave &&
+        form.skillPointsAvailable === nextMetrics.skillPointsAvailable
+      ) {
+        return form;
+      }
+      return {
+        ...form,
+        ...nextMetrics
+      };
+    });
+  }, [
+    autoMetrics.baseAttackBonus,
+    autoMetrics.fortitudeSave,
+    autoMetrics.hitPointsGained,
+    autoMetrics.reflexSave,
+    autoMetrics.skillPointsAvailable,
+    autoMetrics.willSave,
+    levelForm.className,
+    levelForm.levelNumber,
+    setLevelForm
+  ]);
 
   function addFeat(): void {
     if (!newFeat.featName.trim()) return;
@@ -1681,7 +1726,7 @@ function BuildsView({
 
   function applyAutoMetrics(className = levelForm.className): void {
     const nextLevel = { ...levelForm, className };
-    const metrics = getAutoLevelMetrics(nextLevel, selectedBuild ?? buildForm, plannedLevels.filter((level) => level.levelNumber !== nextLevel.levelNumber));
+    const metrics = getAutoLevelMetrics(nextLevel, buildMetricsSource, plannedLevels.filter((level) => level.levelNumber !== nextLevel.levelNumber));
     setLevelForm((form) => ({
       ...form,
       className,
@@ -1847,6 +1892,28 @@ function BuildsView({
               </Field>
               <Field label="Level Cap">
                 <input type="number" min={1} max={60} value={buildForm.levelCap} onChange={(event) => setBuildForm((form) => ({ ...form, levelCap: Number(event.target.value) }))} />
+              </Field>
+              <Field label="Starting Ability Scores" wide>
+                <div className="ability-grid">
+                  {abilityKeys.map((key) => (
+                    <label key={key}>
+                      <span>{key.slice(0, 3).toUpperCase()}</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={99}
+                        value={buildForm.abilityScores[key]}
+                        onChange={(event) =>
+                          setBuildForm((form) => ({
+                            ...form,
+                            abilityScores: { ...form.abilityScores, [key]: Number(event.target.value) }
+                          }))
+                        }
+                      />
+                      <small>{calculateAbilityModifier(buildForm.abilityScores[key]) >= 0 ? '+' : ''}{calculateAbilityModifier(buildForm.abilityScores[key])}</small>
+                    </label>
+                  ))}
+                </div>
               </Field>
               <Field label="Class Split" wide>
                 <input value={buildForm.classSummary} onChange={(event) => setBuildForm((form) => ({ ...form, classSummary: event.target.value }))} />
@@ -2373,6 +2440,21 @@ function BuildRecordPanel({
             <StatTile label="Level Cap" value={build.levelCap} />
             <StatTile label="Selected Level" value={selectedLevel ? `${selectedLevel.levelNumber} ${selectedLevel.className}` : selectedLevelNumber} />
           </div>
+          <section className="record-section">
+            <h3>Ability Scores</h3>
+            <div className="ability-score-tiles compact">
+              {abilityKeys.map((key) => {
+                const modifier = calculateAbilityModifier(build.abilityScores[key]);
+                return (
+                  <span key={key}>
+                    <small>{key.slice(0, 3).toUpperCase()}</small>
+                    <strong>{modifier >= 0 ? '+' : ''}{modifier}</strong>
+                    <em>{build.abilityScores[key]}</em>
+                  </span>
+                );
+              })}
+            </div>
+          </section>
           <section className="record-section">
             <h3>Path Preview</h3>
             <p>{pathPreview || 'No level entries yet.'}</p>

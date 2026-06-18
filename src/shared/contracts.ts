@@ -90,6 +90,14 @@ export const BuildInputSchema = z.object({
   intendedGame: z.string().trim().optional().default(''),
   raceName: z.string().trim().optional().default(''),
   classSummary: z.string().trim().optional().default(''),
+  abilityScores: AbilityScoresSchema.default({
+    strength: 10,
+    dexterity: 10,
+    constitution: 10,
+    intelligence: 10,
+    wisdom: 10,
+    charisma: 10
+  }),
   levelCap: z.coerce.number().int().min(1).max(60).default(40),
   status: BuildStatusSchema.default('draft'),
   tags: z.array(z.string().trim()).default([]),
@@ -245,6 +253,7 @@ export interface Build {
   intendedGame: string;
   raceName: string;
   classSummary: string;
+  abilityScores: AbilityScores;
   levelCap: number;
   status: BuildStatus;
   tags: string[];

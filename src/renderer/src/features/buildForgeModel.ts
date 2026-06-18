@@ -435,8 +435,9 @@ export function getAutoLevelMetrics(
 ): AutoLevelMetrics {
   const classRule = getClassRule(level.className);
   const classRank = getClassRankAtLevel(level, levels);
-  const constitutionModifier = abilityScores ? calculateAbilityModifier(abilityScores.constitution) : 0;
-  const intelligenceModifier = abilityScores ? calculateAbilityModifier(abilityScores.intelligence) : 0;
+  const activeAbilityScores = abilityScores ?? build?.abilityScores;
+  const constitutionModifier = activeAbilityScores ? calculateAbilityModifier(activeAbilityScores.constitution) : 0;
+  const intelligenceModifier = activeAbilityScores ? calculateAbilityModifier(activeAbilityScores.intelligence) : 0;
 
   if (!classRule || !level.className.trim()) {
     return {
@@ -471,7 +472,7 @@ export function getAutoLevelMetrics(
     classRank,
     hitDie: classRule.hitDie,
     skillBase: classRule.skillBase,
-    note: abilityScores
+    note: activeAbilityScores
       ? 'Calculated from class progression and ability modifiers.'
       : 'Calculated from class progression. Ability modifiers will apply once Build Plans store ability scores.'
   };
@@ -483,7 +484,8 @@ export function estimateSkillPoints(
   abilityScores?: AbilityScores
 ): SkillPointEstimate {
   const classBase = getClassSkillBase(level.className || build?.classSummary || '');
-  const intelligenceModifier = abilityScores ? calculateAbilityModifier(abilityScores.intelligence) : 0;
+  const activeAbilityScores = abilityScores ?? build?.abilityScores;
+  const intelligenceModifier = activeAbilityScores ? calculateAbilityModifier(activeAbilityScores.intelligence) : 0;
   const multiplier = level.levelNumber === 1 ? 4 : 1;
   const humanSkillBonus = build?.raceName && /\bhuman\b/i.test(build.raceName) ? (level.levelNumber === 1 ? 4 : 1) : 0;
   const estimatedAvailable = Math.max(1, classBase + intelligenceModifier) * multiplier + humanSkillBonus;

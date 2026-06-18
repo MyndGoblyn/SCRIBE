@@ -31,6 +31,15 @@ import {
 type SqlValue = string | number | Uint8Array | null;
 type Row = Record<string, SqlValue>;
 
+const defaultAbilityScores = {
+  strength: 10,
+  dexterity: 10,
+  constitution: 10,
+  intelligence: 10,
+  wisdom: 10,
+  charisma: 10
+};
+
 const schemaSql = `
 CREATE TABLE IF NOT EXISTS rulesets (
   id TEXT PRIMARY KEY,
@@ -107,6 +116,7 @@ CREATE TABLE IF NOT EXISTS builds (
   intended_game TEXT NOT NULL DEFAULT '',
   race_name TEXT NOT NULL DEFAULT '',
   class_summary TEXT NOT NULL DEFAULT '',
+  ability_scores_json TEXT NOT NULL DEFAULT '{"strength":10,"dexterity":10,"constitution":10,"intelligence":10,"wisdom":10,"charisma":10}',
   level_cap INTEGER NOT NULL DEFAULT 40,
   status TEXT NOT NULL DEFAULT 'draft',
   tags_json TEXT NOT NULL DEFAULT '[]',
@@ -278,6 +288,17 @@ function nullableString(value: SqlValue): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
+function formatAbilityScores(scores: Build['abilityScores']): string {
+  return [
+    `STR ${scores.strength}`,
+    `DEX ${scores.dexterity}`,
+    `CON ${scores.constitution}`,
+    `INT ${scores.intelligence}`,
+    `WIS ${scores.wisdom}`,
+    `CHA ${scores.charisma}`
+  ].join(', ');
+}
+
 export class ScribeDatabase {
   private sql: SqlJsStatic | null = null;
   private db: Database | null = null;
@@ -293,6 +314,7 @@ export class ScribeDatabase {
     const bytes = fs.existsSync(this.dbPath) ? fs.readFileSync(this.dbPath) : undefined;
     this.db = bytes ? new this.sql.Database(bytes) : new this.sql.Database();
     this.assertDb().exec(schemaSql);
+    this.migrate();
     this.seed();
     this.persist();
   }
@@ -392,8 +414,8 @@ export class ScribeDatabase {
     this.exec(
       `INSERT INTO builds (
         id, name, ruleset_id, server_profile_id, intended_role, intended_game, race_name, class_summary,
-        level_cap, status, tags_json, notes, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ability_scores_json, level_cap, status, tags_json, notes, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         parsed.name,
@@ -403,6 +425,7 @@ export class ScribeDatabase {
         parsed.intendedGame,
         parsed.raceName,
         parsed.classSummary,
+        JSON.stringify(parsed.abilityScores),
         parsed.levelCap,
         parsed.status,
         JSON.stringify(parsed.tags),
@@ -420,7 +443,7 @@ export class ScribeDatabase {
     this.exec(
       `UPDATE builds SET
         name = ?, ruleset_id = ?, server_profile_id = ?, intended_role = ?, intended_game = ?,
-        race_name = ?, class_summary = ?, level_cap = ?, status = ?, tags_json = ?, notes = ?, updated_at = ?
+        race_name = ?, class_summary = ?, ability_scores_json = ?, level_cap = ?, status = ?, tags_json = ?, notes = ?, updated_at = ?
       WHERE id = ?`,
       [
         parsed.name,
@@ -430,6 +453,7 @@ export class ScribeDatabase {
         parsed.intendedGame,
         parsed.raceName,
         parsed.classSummary,
+        JSON.stringify(parsed.abilityScores),
         parsed.levelCap,
         parsed.status,
         JSON.stringify(parsed.tags),
@@ -632,6 +656,7 @@ export class ScribeDatabase {
       `- Intended game/server: ${build.intendedGame || 'Unspecified'}`,
       `- Race/species: ${build.raceName || 'Unspecified'}`,
       `- Class split: ${build.classSummary || 'Unspecified'}`,
+      `- Ability scores: ${formatAbilityScores(build.abilityScores)}`,
       `- Final level: ${build.levelCap}`,
       `- Status: ${build.status}`,
       '',
@@ -745,14 +770,7 @@ export class ScribeDatabase {
       currentLevel: Number(row.current_level),
       plannedFinalLevel: row.planned_final_level === null ? null : Number(row.planned_final_level),
       status: row.status as Character['status'],
-      abilityScores: jsonParse(row.ability_scores_json, {
-        strength: 10,
-        dexterity: 10,
-        constitution: 10,
-        intelligence: 10,
-        wisdom: 10,
-        charisma: 10
-      }),
+      abilityScores: jsonParse(row.ability_scores_json, defaultAbilityScores),
       notes: String(row.notes),
       createdAt: String(row.created_at),
       updatedAt: String(row.updated_at)
@@ -769,6 +787,7 @@ export class ScribeDatabase {
       intendedGame: String(row.intended_game),
       raceName: String(row.race_name),
       classSummary: String(row.class_summary),
+      abilityScores: jsonParse(row.ability_scores_json, defaultAbilityScores),
       levelCap: Number(row.level_cap),
       status: row.status as Build['status'],
       tags: jsonParse(row.tags_json, []),
@@ -884,6 +903,18 @@ export class ScribeDatabase {
     const row = this.listResourceLinks().find((item) => item.id === id);
     if (!row) throw new Error(`Resource link not found: ${id}`);
     return row;
+  }
+
+  private migrate(): void {
+    if (!this.hasColumn('builds', 'ability_scores_json')) {
+      this.exec(
+        `ALTER TABLE builds ADD COLUMN ability_scores_json TEXT NOT NULL DEFAULT '${JSON.stringify(defaultAbilityScores)}'`
+      );
+    }
+  }
+
+  private hasColumn(tableName: string, columnName: string): boolean {
+    return this.query(`PRAGMA table_info(${tableName})`).some((row) => row.name === columnName);
   }
 
   private seed(): void {

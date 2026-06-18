@@ -20,6 +20,14 @@ const build: BuildInput = {
   intendedGame: 'Neverwinter Nights',
   raceName: 'Human',
   classSummary: 'Monk 20',
+  abilityScores: {
+    strength: 10,
+    dexterity: 10,
+    constitution: 10,
+    intelligence: 10,
+    wisdom: 10,
+    charisma: 10
+  },
   levelCap: 20,
   status: 'draft',
   tags: [],
@@ -139,6 +147,30 @@ describe('Build Forge model helpers', () => {
       hitDie: 10,
       skillBase: 2
     });
+  });
+
+  it('uses build-plan ability scores for HP and skill point automation', () => {
+    const smartDurableHuman = {
+      ...build,
+      abilityScores: {
+        strength: 10,
+        dexterity: 10,
+        constitution: 14,
+        intelligence: 14,
+        wisdom: 10,
+        charisma: 10
+      }
+    };
+
+    const rogueStart = level({ levelNumber: 1, className: 'Rogue' });
+    const metrics = getAutoLevelMetrics(rogueStart, smartDurableHuman, [rogueStart]);
+    const estimate = estimateSkillPoints(rogueStart, smartDurableHuman);
+
+    expect(metrics.hitPointsGained).toBe(8);
+    expect(metrics.skillPointsAvailable).toBe(44);
+    expect(metrics.note).toBe('Calculated from class progression and ability modifiers.');
+    expect(estimate.intelligenceModifier).toBe(2);
+    expect(estimate.estimatedAvailable).toBe(44);
   });
 });
 
