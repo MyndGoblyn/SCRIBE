@@ -11,13 +11,15 @@ import {
   FileText,
   Home,
   Layers3,
+  Minus,
   Plus,
   RefreshCw,
   Save,
   Search,
   Settings,
   Shield,
-  UserRound
+  UserRound,
+  X
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -53,13 +55,16 @@ import scribeEmblemUrl from './assets/scribe-emblem.png';
 import scribeLogoUrl from './assets/scribe-logo.png';
 import {
   classAbbreviation,
+  adjustSkillAllocation,
   estimateSkillPoints,
   formatFeatSourceLabel,
+  getBuildLevelGuideSections,
   getBuildForgeSteps,
   getBuildHealth,
-  getLevelCellView,
+  getSkillAllocationPoints,
   splitFeatureNotes,
   validateBuildPlan,
+  type BuildLevelGuideSection,
   type BuildForgeStep,
   type BuildHealth,
   type SkillPointEstimate,
@@ -157,6 +162,116 @@ const contentTypes = [
   'formula',
   'server_override'
 ] as const;
+
+const nwnClassOptions = [
+  'Barbarian',
+  'Bard',
+  'Cleric',
+  'Druid',
+  'Fighter',
+  'Monk',
+  'Paladin',
+  'Ranger',
+  'Rogue',
+  'Sorcerer',
+  'Wizard',
+  'Arcane Archer',
+  'Assassin',
+  'Blackguard',
+  'Champion of Torm',
+  'Dwarven Defender',
+  'Harper Scout',
+  'Pale Master',
+  'Red Dragon Disciple',
+  'Shadowdancer',
+  'Shifter',
+  'Weapon Master'
+];
+
+const abilityIncreaseOptions = [
+  { value: '', label: 'None' },
+  { value: '+STR', label: '+STR' },
+  { value: '+DEX', label: '+DEX' },
+  { value: '+CON', label: '+CON' },
+  { value: '+INT', label: '+INT' },
+  { value: '+WIS', label: '+WIS' },
+  { value: '+CHA', label: '+CHA' }
+];
+
+const nwnSkillOptions = [
+  'Animal Empathy',
+  'Appraise',
+  'Bluff',
+  'Concentration',
+  'Craft Armor',
+  'Craft Trap',
+  'Craft Weapon',
+  'Disable Trap',
+  'Discipline',
+  'Heal',
+  'Hide',
+  'Intimidate',
+  'Listen',
+  'Lore',
+  'Move Silently',
+  'Open Lock',
+  'Parry',
+  'Perform',
+  'Persuade',
+  'Pick Pocket',
+  'Search',
+  'Set Trap',
+  'Spellcraft',
+  'Spot',
+  'Taunt',
+  'Tumble',
+  'Use Magic Device'
+];
+
+const nwnFeatOptions: Array<{ name: string; category: string; detail: string }> = [
+  { name: 'Alertness', category: 'General', detail: 'Awareness feat often used for Shifter routes.' },
+  { name: 'Ambidexterity', category: 'General', detail: 'Reduces dual-wielding penalties.' },
+  { name: 'Armor Skin', category: 'Epic', detail: 'Epic armor class improvement.' },
+  { name: 'Blind Fight', category: 'General', detail: 'Improves attacks against concealed targets.' },
+  { name: 'Cleave', category: 'General', detail: 'Follow-up attack after dropping a target.' },
+  { name: 'Combat Casting', category: 'General', detail: 'Concentration support while threatened.' },
+  { name: 'Dodge', category: 'General', detail: 'Prerequisite for Mobility and Spring Attack.' },
+  { name: 'Empower Spell', category: 'Metamagic', detail: 'Raises spell output at higher slot cost.' },
+  { name: 'Epic Prowess', category: 'Epic', detail: 'Epic attack bonus feat.' },
+  { name: 'Epic Spell Focus', category: 'Epic', detail: 'Improves one spell school difficulty class.' },
+  { name: 'Epic Toughness', category: 'Epic', detail: 'Adds a large hit point buffer.' },
+  { name: 'Epic Weapon Focus', category: 'Epic', detail: 'Epic attack bonus with a chosen weapon.' },
+  { name: 'Epic Weapon Specialization', category: 'Epic', detail: 'Epic damage bonus with a chosen weapon.' },
+  { name: 'Expertise', category: 'General', detail: 'Defensive combat mode and prerequisite path feat.' },
+  { name: 'Great Cleave', category: 'General', detail: 'Extends Cleave chaining.' },
+  { name: 'Great Fortitude', category: 'General', detail: 'Fortitude save feat.' },
+  { name: 'Great Strength I', category: 'Epic', detail: 'Epic strength increase.' },
+  { name: 'Great Strength II', category: 'Epic', detail: 'Epic strength increase.' },
+  { name: 'Great Strength III', category: 'Epic', detail: 'Epic strength increase.' },
+  { name: 'Great Strength IV', category: 'Epic', detail: 'Epic strength increase.' },
+  { name: 'Greater Spell Focus', category: 'General', detail: 'Improves one spell school difficulty class.' },
+  { name: 'Greater Weapon Focus', category: 'Fighter', detail: 'Fighter attack bonus with a chosen weapon.' },
+  { name: 'Greater Weapon Specialization', category: 'Fighter', detail: 'Fighter damage bonus with a chosen weapon.' },
+  { name: 'Improved Critical', category: 'General', detail: 'Improves threat range with a chosen weapon.' },
+  { name: 'Improved Knockdown', category: 'General', detail: 'Stronger knockdown control option.' },
+  { name: 'Improved Power Attack', category: 'General', detail: 'Higher damage tradeoff mode.' },
+  { name: 'Improved Two-Weapon Fighting', category: 'General', detail: 'Additional off-hand attack.' },
+  { name: 'Iron Will', category: 'General', detail: 'Will save feat.' },
+  { name: 'Lightning Reflexes', category: 'General', detail: 'Reflex save feat.' },
+  { name: 'Mobility', category: 'General', detail: 'Prerequisite for Spring Attack.' },
+  { name: 'Overwhelming Critical', category: 'Epic', detail: 'Epic critical damage route feat.' },
+  { name: 'Power Attack', category: 'General', detail: 'Damage tradeoff mode and martial prerequisite.' },
+  { name: 'Skill Focus', category: 'General', detail: 'Improves one selected skill.' },
+  { name: 'Spell Focus', category: 'General', detail: 'Improves one spell school difficulty class.' },
+  { name: 'Spring Attack', category: 'General', detail: 'Prerequisite for Weapon Master.' },
+  { name: 'Toughness', category: 'General', detail: 'Hit point feat.' },
+  { name: 'Two-Weapon Fighting', category: 'General', detail: 'Dual-wielding route feat.' },
+  { name: 'Weapon Finesse', category: 'General', detail: 'Dexterity attack route for light weapons.' },
+  { name: 'Weapon Focus', category: 'General', detail: 'Attack bonus with a chosen weapon.' },
+  { name: 'Weapon Specialization', category: 'Fighter', detail: 'Fighter damage bonus with a chosen weapon.' },
+  { name: 'Weapon of Choice', category: 'Class Choice', detail: 'Weapon Master chosen weapon record.' },
+  { name: 'Whirlwind Attack', category: 'General', detail: 'Key Weapon Master prerequisite.' }
+];
 
 const defaultAbilityScores = {
   strength: 10,
@@ -1442,13 +1557,13 @@ function BuildsView({
   const plannedLevels = selectedBuild
     ? data.buildLevels.filter((level) => level.buildId === selectedBuild.id).sort((left, right) => left.levelNumber - right.levelNumber)
     : [];
-  const levels = selectedBuild ? Array.from({ length: selectedBuild.levelCap }, (_, index) => index + 1) : [];
   const selectedBuildLevelIds = new Set(plannedLevels.map((level) => level.id));
   const selectedBuildFeats = data.featSelections.filter((feat) => selectedBuildLevelIds.has(feat.buildLevelId));
   const selectedLevelEntity = plannedLevels.find((level) => level.levelNumber === selectedLevelNumber) ?? null;
   const selectedLevelFeats = selectedLevelEntity ? data.featSelections.filter((feat) => feat.buildLevelId === selectedLevelEntity.id) : levelForm.featSelections;
   const forgeSteps = getBuildForgeSteps(selectedBuild ?? buildForm, plannedLevels);
   const buildHealth = getBuildHealth(selectedBuild, plannedLevels, selectedBuildFeats);
+  const guideSections = selectedBuild ? getBuildLevelGuideSections(selectedBuild.levelCap, plannedLevels, selectedBuildFeats) : [];
   const validationIssues = validateBuildPlan(
     selectedBuild ?? buildForm,
     plannedLevels.length > 0 ? plannedLevels : [levelForm],
@@ -1457,18 +1572,54 @@ function BuildsView({
   );
   const skillEstimate = estimateSkillPoints(levelForm, selectedBuild ?? buildForm);
   const featureNotes = splitFeatureNotes(levelForm.classFeatureNotes);
+  const [activePicker, setActivePicker] = useState<'feat' | 'skill' | null>(null);
+  const [pickerQuery, setPickerQuery] = useState('');
+  const filteredFeatOptions = useMemo(() => {
+    const needle = pickerQuery.trim().toLowerCase();
+    if (!needle) return nwnFeatOptions;
+    return nwnFeatOptions.filter((feat) => `${feat.name} ${feat.category} ${feat.detail}`.toLowerCase().includes(needle));
+  }, [pickerQuery]);
+  const filteredSkillOptions = useMemo(() => {
+    const needle = pickerQuery.trim().toLowerCase();
+    if (!needle) return nwnSkillOptions;
+    return nwnSkillOptions.filter((skill) => skill.toLowerCase().includes(needle));
+  }, [pickerQuery]);
 
   function addFeat(): void {
     if (!newFeat.featName.trim()) return;
+    addFeatByName(newFeat.featName);
+  }
+
+  function addFeatByName(featName: string): void {
+    if (!featName.trim()) return;
     setLevelForm((form) => ({
       ...form,
-      featSelections: [...form.featSelections, { ...newFeat, featName: newFeat.featName.trim() }]
+      featSelections: [...form.featSelections, { ...newFeat, featName: featName.trim() }]
     }));
     setNewFeat({ featName: '', source: 'selected', notes: '' });
   }
 
+  function openPicker(picker: 'feat' | 'skill'): void {
+    setPickerQuery('');
+    setActivePicker(picker);
+  }
+
+  function updateSkill(skillName: string, delta: number): void {
+    setLevelForm((form) => ({
+      ...form,
+      skillAllocation: adjustSkillAllocation(form.skillAllocation, skillName, delta)
+    }));
+  }
+
+  function clearSkill(skillName: string): void {
+    const currentPoints = getSkillAllocationPoints(levelForm.skillAllocation, skillName);
+    if (currentPoints <= 0) return;
+    updateSkill(skillName, -currentPoints);
+  }
+
   return (
-    <div className="forge-shell">
+    <>
+    <div className="forge-shell build-forge-revamp">
       <BuildForgeRail steps={forgeSteps} />
       <div className="stack forge-main">
       {mode === 'builds' && (
@@ -1601,52 +1752,35 @@ function BuildsView({
           <EmptyLine text="Create a Build Plan before adding level entries." />
         ) : (
           <div className="level-planner">
-            <div className="level-grid" aria-label="Build Plan levels">
-              {levels.map((levelNumber) => {
-                const level = plannedLevels.find((entry) => entry.levelNumber === levelNumber) ?? null;
-                const levelFeats = level ? data.featSelections.filter((feat) => feat.buildLevelId === level.id) : [];
-                const cell = getLevelCellView(levelNumber, level, levelFeats);
-                const className = [
-                  'level-cell',
-                  selectedLevelNumber === levelNumber ? 'selected' : '',
-                  cell.isComplete ? 'planned' : '',
-                  cell.hasWarning ? 'warning' : '',
-                  cell.hasFeat ? 'has-feat' : ''
-                ]
-                  .filter(Boolean)
-                  .join(' ');
-                return (
-                  <button
-                    key={levelNumber}
-                    type="button"
-                    className={className}
-                    onClick={() => setSelectedLevelNumber(levelNumber)}
-                    title={`Level ${levelNumber}${level?.className ? `: ${level.className}` : ''}`}
-                  >
-                    <span className="level-number">{levelNumber}</span>
-                    <span className="level-class">{cell.classAbbreviation}</span>
-                    <span className="level-markers" aria-hidden="true">
-                      {cell.hasFeat && <span className="marker feat-marker" />}
-                      {cell.hasAbilityIncrease && <span className="marker ability-marker" />}
-                      {cell.hasWarning && <span className="marker warning-marker" />}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            <BuildLevelGuide sections={guideSections} selectedLevelNumber={selectedLevelNumber} onLevelSelect={setSelectedLevelNumber} />
 
             <form
-              className="form-grid level-form"
+              className="form-grid level-form level-up-console"
               onSubmit={(event) => {
                 event.preventDefault();
                 onLevelSubmit();
               }}
             >
+              <div className="level-up-banner">
+                <div>
+                  <p className="eyebrow">NWN:EE Level-Up Flow</p>
+                  <h3>Level {selectedLevelNumber}</h3>
+                </div>
+                <span>{selectedLevelEntity?.className ? `${selectedLevelEntity.className} recorded` : 'Awaiting class choice'}</span>
+              </div>
               <Field label="Level">
                 <input type="number" value={levelForm.levelNumber} min={1} max={selectedBuild.levelCap} readOnly />
               </Field>
               <Field label="Class Taken">
-                <input value={levelForm.className} onChange={(event) => setLevelForm((form) => ({ ...form, className: event.target.value }))} />
+                <select value={levelForm.className} onChange={(event) => setLevelForm((form) => ({ ...form, className: event.target.value }))}>
+                  <option value="">Choose class</option>
+                  {levelForm.className && !nwnClassOptions.includes(levelForm.className) && <option value={levelForm.className}>{levelForm.className}</option>}
+                  {nwnClassOptions.map((className) => (
+                    <option key={className} value={className}>
+                      {className}
+                    </option>
+                  ))}
+                </select>
               </Field>
               <Field label="HP Gained">
                 <input
@@ -1697,14 +1831,31 @@ function BuildsView({
                 />
               </Field>
               <Field label="Ability Increase">
-                <input value={levelForm.abilityIncrease} onChange={(event) => setLevelForm((form) => ({ ...form, abilityIncrease: event.target.value }))} />
+                <div className="ability-choice-row" role="group" aria-label="Ability increase">
+                  {abilityIncreaseOptions.map((option) => (
+                    <button
+                      key={option.label}
+                      type="button"
+                      className={levelForm.abilityIncrease === option.value ? 'choice-pill selected' : 'choice-pill'}
+                      onClick={() => setLevelForm((form) => ({ ...form, abilityIncrease: option.value }))}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
               </Field>
               <Field label="Skill Allocation" wide>
-                <input
-                  value={levelForm.skillAllocation}
-                  onChange={(event) => setLevelForm((form) => ({ ...form, skillAllocation: event.target.value }))}
-                  placeholder="Discipline +4, Tumble +2"
-                />
+                <div className="choice-action-row">
+                  <input
+                    value={levelForm.skillAllocation}
+                    onChange={(event) => setLevelForm((form) => ({ ...form, skillAllocation: event.target.value }))}
+                    placeholder="Discipline +4, Tumble +2"
+                  />
+                  <button type="button" className="ghost" onClick={() => openPicker('skill')}>
+                    <Plus size={16} />
+                    Skills
+                  </button>
+                </div>
               </Field>
               <div className="planner-status-grid">
                 <StatTile label="Estimated Skill Points" value={skillEstimate.estimatedAvailable} />
@@ -1713,7 +1864,7 @@ function BuildsView({
                 <StatTile label="Remaining" value={skillEstimate.remaining ?? 'Auto'} tone={skillEstimate.remaining !== null && skillEstimate.remaining < 0 ? 'warn' : 'ok'} />
               </div>
               <Field label="Feat / Feature Source" wide>
-                <div className="feat-editor">
+                <div className="feat-editor choice-action-row">
                   <input value={newFeat.featName} onChange={(event) => setNewFeat({ ...newFeat, featName: event.target.value })} placeholder="Power Attack" />
                   <select value={newFeat.source} onChange={(event) => setNewFeat({ ...newFeat, source: event.target.value as FeatSource })}>
                     {featSources.map((source) => (
@@ -1725,6 +1876,10 @@ function BuildsView({
                   <input value={newFeat.notes} onChange={(event) => setNewFeat({ ...newFeat, notes: event.target.value })} placeholder="Notes" />
                   <button type="button" className="icon-button" onClick={addFeat} title="Add feat source" aria-label="Add feat source">
                     <Plus size={16} />
+                  </button>
+                  <button type="button" className="ghost" onClick={() => openPicker('feat')}>
+                    <Search size={16} />
+                    Browse
                   </button>
                 </div>
                 {levelForm.featSelections.length > 0 && (
@@ -1805,6 +1960,183 @@ function BuildsView({
           openCompendium={openCompendium}
         />
       </div>
+    </div>
+    {activePicker === 'feat' && (
+      <BuildChoicePicker
+        title="Feat / Feature Picker"
+        query={pickerQuery}
+        setQuery={setPickerQuery}
+        onClose={() => setActivePicker(null)}
+      >
+        <div className="picker-controls">
+          <Field label="Source">
+            <select value={newFeat.source} onChange={(event) => setNewFeat({ ...newFeat, source: event.target.value as FeatSource })}>
+              {featSources.map((source) => (
+                <option key={source.value} value={source.value}>
+                  {source.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+        <div className="picker-option-list">
+          {filteredFeatOptions.map((feat) => (
+            <button key={feat.name} type="button" className="picker-option" onClick={() => addFeatByName(feat.name)}>
+              <span>
+                <strong>{feat.name}</strong>
+                <small>{feat.category}</small>
+              </span>
+              <em>{feat.detail}</em>
+            </button>
+          ))}
+        </div>
+      </BuildChoicePicker>
+    )}
+    {activePicker === 'skill' && (
+      <BuildChoicePicker
+        title="Skill Point Picker"
+        query={pickerQuery}
+        setQuery={setPickerQuery}
+        onClose={() => setActivePicker(null)}
+      >
+        <div className="skill-picker-summary">
+          <StatTile label="Available" value={skillEstimate.enteredAvailable ?? skillEstimate.estimatedAvailable} />
+          <StatTile label="Spent" value={skillEstimate.spent} />
+          <StatTile label="Remaining" value={skillEstimate.remaining ?? 'Auto'} tone={skillEstimate.remaining !== null && skillEstimate.remaining < 0 ? 'warn' : 'ok'} />
+        </div>
+        <div className="picker-option-list skill-picker-list">
+          {filteredSkillOptions.map((skill) => {
+            const points = getSkillAllocationPoints(levelForm.skillAllocation, skill);
+            return (
+              <div className="skill-picker-row" key={skill}>
+                <span>
+                  <strong>{skill}</strong>
+                  <small>{points > 0 ? `${points} point${points === 1 ? '' : 's'} assigned` : 'No points assigned'}</small>
+                </span>
+                <div className="skill-stepper">
+                  <button type="button" className="icon-button ghost" onClick={() => updateSkill(skill, -1)} disabled={points <= 0} aria-label={`Remove ${skill}`}>
+                    <Minus size={16} />
+                  </button>
+                  <strong>{points}</strong>
+                  <button type="button" className="icon-button" onClick={() => updateSkill(skill, 1)} aria-label={`Add ${skill}`}>
+                    <Plus size={16} />
+                  </button>
+                  <button type="button" className="ghost" onClick={() => clearSkill(skill)} disabled={points <= 0}>
+                    Clear
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </BuildChoicePicker>
+    )}
+    </>
+  );
+}
+
+function BuildLevelGuide({
+  sections,
+  selectedLevelNumber,
+  onLevelSelect
+}: {
+  sections: BuildLevelGuideSection[];
+  selectedLevelNumber: number;
+  onLevelSelect: (levelNumber: number) => void;
+}): ReactElement {
+  return (
+    <section className="level-guide-panel" aria-label="Full level-by-level guide">
+      <div className="level-guide-title">
+        <div>
+          <p className="eyebrow">Full Level-by-Level Guide</p>
+          <h3>Levels 1-40</h3>
+        </div>
+        <span>Class, ability, feat source, and skill path</span>
+      </div>
+      {sections.length === 0 ? (
+        <EmptyLine text="Select a Build Plan to see the guide table." />
+      ) : (
+        <div className="level-guide-scroll">
+          {sections.map((section) => (
+            <section className="level-guide-section" key={section.id}>
+              <h4>{section.title}</h4>
+              <table className="level-guide-table">
+                <thead>
+                  <tr>
+                    <th>Lvl</th>
+                    <th>Class</th>
+                    <th>Ability</th>
+                    <th>Feat / Feature</th>
+                    <th>Source</th>
+                    <th>Skills</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {section.rows.map((row) => (
+                    <tr
+                      className={[
+                        row.levelNumber === selectedLevelNumber ? 'selected' : '',
+                        row.isPlanned ? 'planned' : 'empty',
+                        row.hasWarning ? 'warning' : ''
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      key={row.id}
+                    >
+                      <td>
+                        <button type="button" className="guide-level-button" onClick={() => onLevelSelect(row.levelNumber)}>
+                          {row.levelNumber}
+                        </button>
+                      </td>
+                      <td>{row.classLabel}</td>
+                      <td>{row.abilityIncrease}</td>
+                      <td>{row.choiceLabel}</td>
+                      <td>{row.source ? <SourceBadge source={row.source} /> : <span className="guide-dash">--</span>}</td>
+                      <td>{row.skills}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function BuildChoicePicker({
+  title,
+  query,
+  setQuery,
+  onClose,
+  children
+}: {
+  title: string;
+  query: string;
+  setQuery: (value: string) => void;
+  onClose: () => void;
+  children: ReactNode;
+}): ReactElement {
+  return (
+    <div className="picker-overlay" role="dialog" aria-modal="true" aria-label={title}>
+      <button type="button" className="picker-scrim" onClick={onClose} aria-label="Close picker backdrop" />
+      <aside className="choice-picker">
+        <div className="picker-header">
+          <div>
+            <p className="eyebrow">Level-Up Menu</p>
+            <h2>{title}</h2>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Close picker" title="Close">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="search-box picker-search">
+          <Search size={17} />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter options" autoFocus />
+        </div>
+        {children}
+      </aside>
     </div>
   );
 }
