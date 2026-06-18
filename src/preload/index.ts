@@ -27,6 +27,7 @@ const api = {
     ipcRenderer.invoke('scribe:updateCharacter', id, input),
   createBuild: (input: BuildInput): Promise<Build> => ipcRenderer.invoke('scribe:createBuild', input),
   updateBuild: (id: string, input: BuildInput): Promise<Build> => ipcRenderer.invoke('scribe:updateBuild', id, input),
+  deleteBuild: (id: string): Promise<void> => ipcRenderer.invoke('scribe:deleteBuild', id),
   upsertBuildLevel: (input: BuildLevelInput): Promise<BuildLevel> => ipcRenderer.invoke('scribe:upsertBuildLevel', input),
   createContentEntry: (input: ContentEntryInput): Promise<ContentEntry> =>
     ipcRenderer.invoke('scribe:createContentEntry', input),

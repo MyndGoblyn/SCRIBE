@@ -442,6 +442,15 @@ export class ScribeDatabase {
     return this.getBuild(id);
   }
 
+  deleteBuild(id: string): void {
+    const build = this.getBuild(id);
+    this.exec('UPDATE characters SET build_id = NULL, updated_at = ? WHERE build_id = ?', [nowIso(), build.id]);
+    this.exec('DELETE FROM feat_selections WHERE build_level_id IN (SELECT id FROM build_levels WHERE build_id = ?)', [build.id]);
+    this.exec('DELETE FROM build_levels WHERE build_id = ?', [build.id]);
+    this.exec('DELETE FROM builds WHERE id = ?', [build.id]);
+    this.persist();
+  }
+
   upsertBuildLevel(input: BuildLevelInput): BuildLevel {
     const parsed = BuildLevelInputSchema.parse(input);
     const existing = this.queryOne<Row>(

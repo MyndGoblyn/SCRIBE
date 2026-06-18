@@ -72,6 +72,7 @@ function registerIpc(): void {
   ipcMain.handle('scribe:updateCharacter', (_event, id, input) => getDatabase().updateCharacter(id, input));
   ipcMain.handle('scribe:createBuild', (_event, input) => getDatabase().createBuild(input));
   ipcMain.handle('scribe:updateBuild', (_event, id, input) => getDatabase().updateBuild(id, input));
+  ipcMain.handle('scribe:deleteBuild', (_event, id) => getDatabase().deleteBuild(id));
   ipcMain.handle('scribe:upsertBuildLevel', (_event, input) => getDatabase().upsertBuildLevel(input));
   ipcMain.handle('scribe:createContentEntry', (_event, input) => getDatabase().createContentEntry(input));
   ipcMain.handle('scribe:createServerProfile', (_event, input) => getDatabase().createServerProfile(input));

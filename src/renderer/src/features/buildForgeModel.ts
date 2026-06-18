@@ -32,9 +32,7 @@ export interface BuildHealth {
   completionPercent: number;
   plannedLevelCount: number;
   levelCap: number;
-  warningCount: number;
   featCount: number;
-  automaticFeatureCount: number;
   statusLabel: string;
 }
 
@@ -45,6 +43,19 @@ export interface SkillPointEstimate {
   enteredAvailable: number | null;
   spent: number;
   remaining: number | null;
+}
+
+export interface AutoLevelMetrics {
+  hitPointsGained: number | null;
+  baseAttackBonus: number | null;
+  fortitudeSave: number | null;
+  reflexSave: number | null;
+  willSave: number | null;
+  skillPointsAvailable: number | null;
+  classRank: number;
+  hitDie: number | null;
+  skillBase: number | null;
+  note: string;
 }
 
 export interface LevelCellView {
@@ -79,26 +90,42 @@ export interface BuildLevelGuideSection {
 
 export type SourceBadgeTone = 'selected' | 'automatic' | 'server' | 'custom' | 'override';
 
-const classSkillBases: Record<string, number> = {
-  assassin: 4,
-  barbarian: 4,
-  bard: 4,
-  blackguard: 2,
-  champion: 2,
-  cleric: 2,
-  defender: 2,
-  druid: 4,
-  fighter: 2,
-  harper: 4,
-  monk: 4,
-  paladin: 2,
-  ranger: 4,
-  rogue: 8,
-  shadowdancer: 6,
-  shifter: 4,
-  sorcerer: 2,
-  weapon: 2,
-  wizard: 2
+type BabProgression = 'full' | 'threeQuarter' | 'half';
+type SaveProgression = 'good' | 'poor';
+
+interface NwnClassRule {
+  aliases: string[];
+  hitDie: number;
+  skillBase: number;
+  bab: BabProgression;
+  fortitude: SaveProgression;
+  reflex: SaveProgression;
+  will: SaveProgression;
+}
+
+const nwnClassRules: Record<string, NwnClassRule> = {
+  barbarian: { aliases: ['barbarian'], hitDie: 12, skillBase: 4, bab: 'full', fortitude: 'good', reflex: 'poor', will: 'poor' },
+  bard: { aliases: ['bard'], hitDie: 6, skillBase: 4, bab: 'threeQuarter', fortitude: 'poor', reflex: 'good', will: 'good' },
+  cleric: { aliases: ['cleric'], hitDie: 8, skillBase: 2, bab: 'threeQuarter', fortitude: 'good', reflex: 'poor', will: 'good' },
+  druid: { aliases: ['druid'], hitDie: 8, skillBase: 4, bab: 'threeQuarter', fortitude: 'good', reflex: 'poor', will: 'good' },
+  fighter: { aliases: ['fighter'], hitDie: 10, skillBase: 2, bab: 'full', fortitude: 'good', reflex: 'poor', will: 'poor' },
+  monk: { aliases: ['monk'], hitDie: 8, skillBase: 4, bab: 'threeQuarter', fortitude: 'good', reflex: 'good', will: 'good' },
+  paladin: { aliases: ['paladin'], hitDie: 10, skillBase: 2, bab: 'full', fortitude: 'good', reflex: 'poor', will: 'poor' },
+  ranger: { aliases: ['ranger'], hitDie: 10, skillBase: 4, bab: 'full', fortitude: 'good', reflex: 'good', will: 'poor' },
+  rogue: { aliases: ['rogue'], hitDie: 6, skillBase: 8, bab: 'threeQuarter', fortitude: 'poor', reflex: 'good', will: 'poor' },
+  sorcerer: { aliases: ['sorcerer'], hitDie: 4, skillBase: 2, bab: 'half', fortitude: 'poor', reflex: 'poor', will: 'good' },
+  wizard: { aliases: ['wizard'], hitDie: 4, skillBase: 2, bab: 'half', fortitude: 'poor', reflex: 'poor', will: 'good' },
+  arcaneArcher: { aliases: ['arcane archer'], hitDie: 8, skillBase: 4, bab: 'full', fortitude: 'poor', reflex: 'good', will: 'poor' },
+  assassin: { aliases: ['assassin'], hitDie: 6, skillBase: 4, bab: 'threeQuarter', fortitude: 'poor', reflex: 'good', will: 'poor' },
+  blackguard: { aliases: ['blackguard'], hitDie: 10, skillBase: 2, bab: 'full', fortitude: 'good', reflex: 'poor', will: 'poor' },
+  champion: { aliases: ['champion of torm', 'champion'], hitDie: 10, skillBase: 2, bab: 'full', fortitude: 'good', reflex: 'poor', will: 'poor' },
+  defender: { aliases: ['dwarven defender', 'defender'], hitDie: 12, skillBase: 2, bab: 'full', fortitude: 'good', reflex: 'poor', will: 'poor' },
+  harper: { aliases: ['harper scout', 'harper'], hitDie: 6, skillBase: 4, bab: 'threeQuarter', fortitude: 'poor', reflex: 'good', will: 'good' },
+  paleMaster: { aliases: ['pale master'], hitDie: 6, skillBase: 2, bab: 'half', fortitude: 'poor', reflex: 'poor', will: 'good' },
+  redDragonDisciple: { aliases: ['red dragon disciple'], hitDie: 12, skillBase: 2, bab: 'threeQuarter', fortitude: 'good', reflex: 'poor', will: 'good' },
+  shadowdancer: { aliases: ['shadowdancer'], hitDie: 8, skillBase: 6, bab: 'threeQuarter', fortitude: 'poor', reflex: 'good', will: 'poor' },
+  shifter: { aliases: ['shifter'], hitDie: 8, skillBase: 4, bab: 'threeQuarter', fortitude: 'good', reflex: 'poor', will: 'good' },
+  weaponMaster: { aliases: ['weapon master'], hitDie: 10, skillBase: 2, bab: 'full', fortitude: 'poor', reflex: 'poor', will: 'good' }
 };
 
 const sourceLabels: Record<FeatSource, string> = {
@@ -155,7 +182,7 @@ export function getBuildForgeSteps(build: Build | BuildInput | null, levels: Bui
     {
       key: 'validation',
       label: 'Validation',
-      detail: hasWarnings ? 'Review warnings before locking.' : 'No level warnings recorded.',
+      detail: hasWarnings ? 'Review level notes before locking.' : 'No level issues recorded.',
       state: hasWarnings ? 'warning' : hasLevels ? 'complete' : 'locked'
     },
     {
@@ -171,16 +198,12 @@ export function getBuildHealth(build: Build | null, levels: BuildLevel[], featSe
   const levelCap = build?.levelCap ?? 0;
   const plannedLevelCount = levels.length;
   const completionPercent = levelCap > 0 ? Math.min(100, Math.round((plannedLevelCount / levelCap) * 100)) : 0;
-  const warningCount = levels.reduce((total, level) => total + level.validationWarnings.length, 0);
-  const automaticFeatureCount = levels.reduce((total, level) => total + splitFeatureNotes(level.classFeatureNotes).length, 0);
 
   return {
     completionPercent,
     plannedLevelCount,
     levelCap,
-    warningCount,
     featCount: featSelections.length,
-    automaticFeatureCount,
     statusLabel: build ? build.status.replaceAll('_', ' ') : 'No build selected'
   };
 }
@@ -404,6 +427,56 @@ export function getBuildLevelGuideSections(
   return groupGuideRowsIntoSections(rows);
 }
 
+export function getAutoLevelMetrics(
+  level: BuildLevel | BuildLevelInput,
+  build: Build | BuildInput | null,
+  levels: Array<BuildLevel | BuildLevelInput>,
+  abilityScores?: AbilityScores
+): AutoLevelMetrics {
+  const classRule = getClassRule(level.className);
+  const classRank = getClassRankAtLevel(level, levels);
+  const constitutionModifier = abilityScores ? calculateAbilityModifier(abilityScores.constitution) : 0;
+  const intelligenceModifier = abilityScores ? calculateAbilityModifier(abilityScores.intelligence) : 0;
+
+  if (!classRule || !level.className.trim()) {
+    return {
+      hitPointsGained: null,
+      baseAttackBonus: null,
+      fortitudeSave: null,
+      reflexSave: null,
+      willSave: null,
+      skillPointsAvailable: null,
+      classRank,
+      hitDie: null,
+      skillBase: null,
+      note: 'Choose a class to calculate NWN metrics.'
+    };
+  }
+
+  const projectedLevels = getProjectedLevels(level, levels);
+  const raceName = build?.raceName ?? '';
+  const isHuman = /\bhuman\b/i.test(raceName);
+  const multiplier = level.levelNumber === 1 ? 4 : 1;
+  const humanSkillBonus = isHuman ? (level.levelNumber === 1 ? 4 : 1) : 0;
+  const skillPointsAvailable = Math.max(1, classRule.skillBase + intelligenceModifier) * multiplier + humanSkillBonus;
+  const hitPointsGained = Math.max(1, classRule.hitDie + constitutionModifier);
+
+  return {
+    hitPointsGained,
+    baseAttackBonus: getCumulativeBab(projectedLevels),
+    fortitudeSave: getCumulativeSave(projectedLevels, 'fortitude'),
+    reflexSave: getCumulativeSave(projectedLevels, 'reflex'),
+    willSave: getCumulativeSave(projectedLevels, 'will'),
+    skillPointsAvailable,
+    classRank,
+    hitDie: classRule.hitDie,
+    skillBase: classRule.skillBase,
+    note: abilityScores
+      ? 'Calculated from class progression and ability modifiers.'
+      : 'Calculated from class progression. Ability modifiers will apply once Build Plans store ability scores.'
+  };
+}
+
 export function estimateSkillPoints(
   level: BuildLevel | BuildLevelInput,
   build: Build | BuildInput | null,
@@ -412,7 +485,8 @@ export function estimateSkillPoints(
   const classBase = getClassSkillBase(level.className || build?.classSummary || '');
   const intelligenceModifier = abilityScores ? calculateAbilityModifier(abilityScores.intelligence) : 0;
   const multiplier = level.levelNumber === 1 ? 4 : 1;
-  const estimatedAvailable = Math.max(1, classBase + intelligenceModifier) * multiplier;
+  const humanSkillBonus = build?.raceName && /\bhuman\b/i.test(build.raceName) ? (level.levelNumber === 1 ? 4 : 1) : 0;
+  const estimatedAvailable = Math.max(1, classBase + intelligenceModifier) * multiplier + humanSkillBonus;
   const enteredAvailable = level.skillPointsAvailable ?? null;
   const spent = parseSpentSkillPoints(level.skillAllocation);
   const available = enteredAvailable ?? estimatedAvailable;
@@ -478,6 +552,80 @@ function getGuideChoices(level: BuildLevel | null, featSelections: FeatSelection
     ...featSelections.map((feat) => ({ label: feat.featName, source: feat.source })),
     ...splitFeatureNotes(level.classFeatureNotes).map((feature) => ({ label: feature, source: 'class_grant' as FeatSource }))
   ];
+}
+
+function getProjectedLevels(
+  currentLevel: BuildLevel | BuildLevelInput,
+  levels: Array<BuildLevel | BuildLevelInput>
+): Array<BuildLevel | BuildLevelInput> {
+  const projected = new Map<number, BuildLevel | BuildLevelInput>();
+
+  for (const level of levels) {
+    if (level.levelNumber <= currentLevel.levelNumber) {
+      projected.set(level.levelNumber, level);
+    }
+  }
+
+  projected.set(currentLevel.levelNumber, currentLevel);
+  return [...projected.values()].sort((left, right) => left.levelNumber - right.levelNumber);
+}
+
+function getClassRankAtLevel(currentLevel: BuildLevel | BuildLevelInput, levels: Array<BuildLevel | BuildLevelInput>): number {
+  const className = currentLevel.className.trim();
+  if (!className) {
+    return 0;
+  }
+
+  const projectedLevels = getProjectedLevels(currentLevel, levels);
+  const normalizedClassName = normalizeClassName(className);
+  return projectedLevels.filter((level) => level.levelNumber <= currentLevel.levelNumber && normalizeClassName(level.className) === normalizedClassName).length;
+}
+
+function getCumulativeBab(levels: Array<BuildLevel | BuildLevelInput>): number {
+  const classCounts = new Map<string, number>();
+  let total = 0;
+
+  for (const level of levels) {
+    const classRule = getClassRule(level.className);
+    if (!classRule) continue;
+    const classKey = getClassRuleKey(level.className) ?? normalizeClassName(level.className);
+    const previousRank = classCounts.get(classKey) ?? 0;
+    const nextRank = previousRank + 1;
+    classCounts.set(classKey, nextRank);
+    total += getBabAtClassLevel(classRule.bab, nextRank) - getBabAtClassLevel(classRule.bab, previousRank);
+  }
+
+  return total;
+}
+
+function getCumulativeSave(levels: Array<BuildLevel | BuildLevelInput>, save: 'fortitude' | 'reflex' | 'will'): number {
+  const classCounts = new Map<string, number>();
+  let total = 0;
+
+  for (const level of levels) {
+    const classRule = getClassRule(level.className);
+    if (!classRule) continue;
+    const classKey = getClassRuleKey(level.className) ?? normalizeClassName(level.className);
+    const previousRank = classCounts.get(classKey) ?? 0;
+    const nextRank = previousRank + 1;
+    classCounts.set(classKey, nextRank);
+    const progression = classRule[save];
+    total += getSaveAtClassLevel(progression, nextRank) - getSaveAtClassLevel(progression, previousRank);
+  }
+
+  return total;
+}
+
+function getBabAtClassLevel(progression: BabProgression, classLevel: number): number {
+  if (classLevel <= 0) return 0;
+  if (progression === 'full') return classLevel;
+  if (progression === 'threeQuarter') return Math.floor(classLevel * 0.75);
+  return Math.floor(classLevel * 0.5);
+}
+
+function getSaveAtClassLevel(progression: SaveProgression, classLevel: number): number {
+  if (classLevel <= 0) return 0;
+  return progression === 'good' ? 2 + Math.floor(classLevel / 2) : Math.floor(classLevel / 3);
 }
 
 function groupGuideRowsIntoSections(rows: BuildLevelGuideRow[]): BuildLevelGuideSection[] {
@@ -547,9 +695,31 @@ function normalizeSkillName(skillName: string): string {
 }
 
 function getClassSkillBase(className: string): number {
-  const lowerName = className.toLowerCase();
-  const foundKey = Object.keys(classSkillBases).find((key) => lowerName.includes(key));
-  return foundKey ? classSkillBases[foundKey] : 2;
+  return getClassRule(className)?.skillBase ?? 2;
+}
+
+function getClassRule(className: string): NwnClassRule | null {
+  const key = getClassRuleKey(className);
+  return key ? nwnClassRules[key] : null;
+}
+
+function getClassRuleKey(className: string): string | null {
+  const normalized = normalizeClassName(className);
+  if (!normalized) {
+    return null;
+  }
+
+  for (const [key, rule] of Object.entries(nwnClassRules)) {
+    if (rule.aliases.some((alias) => normalized.includes(normalizeClassName(alias)))) {
+      return key;
+    }
+  }
+
+  return null;
+}
+
+function normalizeClassName(className: string): string {
+  return className.toLowerCase().replace(/[^a-z0-9]+/g, '');
 }
 
 function getInlineFeatCount(level: BuildLevel | BuildLevelInput): number {

@@ -5,6 +5,7 @@ import {
   classAbbreviation,
   estimateSkillPoints,
   formatFeatSourceLabel,
+  getAutoLevelMetrics,
   getBuildLevelGuideSections,
   getSkillAllocationPoints,
   getLevelCellView,
@@ -60,9 +61,9 @@ describe('Build Forge model helpers', () => {
     });
 
     expect(estimate.classBase).toBe(4);
-    expect(estimate.estimatedAvailable).toBe(24);
+    expect(estimate.estimatedAvailable).toBe(28);
     expect(estimate.spent).toBe(8);
-    expect(estimate.remaining).toBe(16);
+    expect(estimate.remaining).toBe(20);
   });
 
   it('surfaces incomplete paths, level warnings, and source override notes', () => {
@@ -111,6 +112,33 @@ describe('Build Forge model helpers', () => {
     expect(adjustSkillAllocation('Discipline +4, Tumble +2', 'Tumble', -2)).toBe('Discipline +4');
     expect(adjustSkillAllocation('Discipline +4', 'Spellcraft', 1)).toBe('Discipline +4, Spellcraft +1');
     expect(getSkillAllocationPoints('Discipline +4, Spellcraft +2', 'spellcraft')).toBe(2);
+  });
+
+  it('calculates class-derived NWN metrics for level planning', () => {
+    const rogueStart = level({ levelNumber: 1, className: 'Rogue' });
+    const fighterPatch = level({ levelNumber: 2, className: 'Fighter' });
+
+    expect(getAutoLevelMetrics(rogueStart, { ...build, raceName: 'Human' }, [rogueStart])).toMatchObject({
+      hitPointsGained: 6,
+      baseAttackBonus: 0,
+      fortitudeSave: 0,
+      reflexSave: 2,
+      willSave: 0,
+      skillPointsAvailable: 36,
+      hitDie: 6,
+      skillBase: 8
+    });
+
+    expect(getAutoLevelMetrics(fighterPatch, build, [rogueStart, fighterPatch])).toMatchObject({
+      hitPointsGained: 10,
+      baseAttackBonus: 1,
+      fortitudeSave: 2,
+      reflexSave: 2,
+      willSave: 0,
+      skillPointsAvailable: 3,
+      hitDie: 10,
+      skillBase: 2
+    });
   });
 });
 

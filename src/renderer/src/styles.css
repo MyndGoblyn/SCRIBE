@@ -93,6 +93,11 @@ select:focus {
   box-shadow: 0 0 0 3px rgba(47, 183, 255, 0.16);
 }
 
+input[readonly] {
+  color: var(--gold-soft);
+  background: rgba(13, 22, 31, 0.72);
+}
+
 .app-shell {
   display: flex;
   height: 100vh;
@@ -240,6 +245,29 @@ select:focus {
   gap: 8px;
 }
 
+.segmented-control {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(5, 9, 14, 0.72);
+}
+
+.segmented-control button {
+  min-height: 32px;
+  padding: 0 12px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 13px;
+}
+
+.segmented-control button.active,
+.segmented-control button:hover {
+  color: #041015;
+  background: var(--gold);
+}
+
 .eyebrow {
   margin: 0;
   color: var(--muted);
@@ -267,6 +295,16 @@ select:focus {
   width: 38px;
   min-width: 38px;
   padding: 0;
+}
+
+.icon-button.danger {
+  color: #fff;
+  background: rgba(208, 82, 99, 0.74);
+}
+
+.icon-button.danger:hover {
+  color: #fff;
+  background: var(--danger);
 }
 
 .ghost {
@@ -403,8 +441,13 @@ select:focus {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
   margin-bottom: 16px;
+}
+
+.panel-header > div {
+  min-width: 0;
 }
 
 .panel-header h2 {
@@ -504,6 +547,12 @@ select:focus {
 .table-wrap {
   width: 100%;
   overflow-x: auto;
+}
+
+.table-actions {
+  display: inline-flex;
+  gap: 6px;
+  justify-content: flex-end;
 }
 
 table {
@@ -607,7 +656,7 @@ td {
 }
 
 .forge-shell {
-  grid-template-columns: minmax(210px, 0.26fr) minmax(0, 1fr) minmax(310px, 0.34fr);
+  grid-template-columns: minmax(190px, 0.24fr) minmax(0, 1fr);
 }
 
 .forge-main {
@@ -616,8 +665,21 @@ td {
 
 .forge-record-stack {
   display: grid;
+  grid-column: 2;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 18px;
   min-width: 0;
+}
+
+@media (min-width: 1500px) {
+  .forge-shell {
+    grid-template-columns: minmax(210px, 0.24fr) minmax(0, 1fr) minmax(300px, 0.32fr);
+  }
+
+  .forge-record-stack {
+    grid-column: auto;
+    grid-template-columns: 1fr;
+  }
 }
 
 .forge-rail {
@@ -1069,6 +1131,25 @@ td {
   border-bottom: 1px solid rgba(43, 59, 73, 0.74);
 }
 
+.auto-metric-note {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid rgba(67, 207, 226, 0.16);
+  border-radius: 8px;
+  background: rgba(8, 14, 20, 0.64);
+}
+
+.auto-metric-note span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.36;
+}
+
 .feat-editor {
   display: grid;
   grid-template-columns: minmax(160px, 1.1fr) minmax(180px, 1fr) minmax(140px, 1fr) 38px;
@@ -1167,6 +1248,11 @@ td {
 .picker-controls {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+}
+
+.spell-filter-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .picker-option-list {
@@ -1998,7 +2084,8 @@ td {
 
   .choice-action-row,
   .feat-editor.choice-action-row,
-  .skill-picker-row {
+  .skill-picker-row,
+  .spell-filter-grid {
     grid-template-columns: 1fr;
   }
 
@@ -2012,6 +2099,10 @@ td {
 
   .forge-rail {
     position: relative;
+  }
+
+  .forge-record-stack {
+    grid-column: auto;
   }
 
   .character-card {

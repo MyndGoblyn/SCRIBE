@@ -18,6 +18,7 @@ import {
   Search,
   Settings,
   Shield,
+  Trash2,
   UserRound,
   X
 } from 'lucide-react';
@@ -58,17 +59,15 @@ import {
   adjustSkillAllocation,
   estimateSkillPoints,
   formatFeatSourceLabel,
+  getAutoLevelMetrics,
   getBuildLevelGuideSections,
   getBuildForgeSteps,
   getBuildHealth,
   getSkillAllocationPoints,
-  splitFeatureNotes,
-  validateBuildPlan,
   type BuildLevelGuideSection,
   type BuildForgeStep,
   type BuildHealth,
-  type SkillPointEstimate,
-  type ValidationIssue
+  type SkillPointEstimate
 } from './features/buildForgeModel';
 import { getCharacterDossier, type CharacterDossier } from './features/characterDossier';
 
@@ -271,6 +270,48 @@ const nwnFeatOptions: Array<{ name: string; category: string; detail: string }> 
   { name: 'Weapon Specialization', category: 'Fighter', detail: 'Fighter damage bonus with a chosen weapon.' },
   { name: 'Weapon of Choice', category: 'Class Choice', detail: 'Weapon Master chosen weapon record.' },
   { name: 'Whirlwind Attack', category: 'General', detail: 'Key Weapon Master prerequisite.' }
+];
+
+const spellSchools = ['All', 'Abjuration', 'Conjuration', 'Divination', 'Enchantment', 'Evocation', 'Illusion', 'Necromancy', 'Transmutation', 'Invocation', 'Epic'] as const;
+const spellTraditions = ['All', 'Arcane', 'Divine', 'Warlock', 'Epic'] as const;
+
+const nwnSpellOptions: Array<{ name: string; tradition: (typeof spellTraditions)[number]; school: (typeof spellSchools)[number]; level: string; detail: string }> = [
+  { name: 'Mage Armor', tradition: 'Arcane', school: 'Conjuration', level: '1', detail: 'Armor bonus staple for early arcane defense.' },
+  { name: 'Magic Missile', tradition: 'Arcane', school: 'Evocation', level: '1', detail: 'Reliable force damage.' },
+  { name: 'Shield', tradition: 'Arcane', school: 'Abjuration', level: '1', detail: 'Defensive arcane buff.' },
+  { name: 'Identify', tradition: 'Arcane', school: 'Divination', level: '1', detail: 'Item identification support.' },
+  { name: 'Ghostly Visage', tradition: 'Arcane', school: 'Illusion', level: '2', detail: 'Damage reduction and concealment utility.' },
+  { name: 'Melf Acid Arrow', tradition: 'Arcane', school: 'Conjuration', level: '2', detail: 'Damage over time acid spell.' },
+  { name: 'Cat Grace', tradition: 'Arcane', school: 'Transmutation', level: '2', detail: 'Dexterity buff.' },
+  { name: 'Fireball', tradition: 'Arcane', school: 'Evocation', level: '3', detail: 'Area fire damage.' },
+  { name: 'Haste', tradition: 'Arcane', school: 'Transmutation', level: '3', detail: 'Major speed and action economy buff.' },
+  { name: 'Displacement', tradition: 'Arcane', school: 'Illusion', level: '3', detail: 'Concealment defense.' },
+  { name: 'Stoneskin', tradition: 'Arcane', school: 'Abjuration', level: '4', detail: 'Damage reduction buff.' },
+  { name: 'Isaac Lesser Missile Storm', tradition: 'Arcane', school: 'Evocation', level: '4', detail: 'Single-target missile burst.' },
+  { name: 'Cloudkill', tradition: 'Arcane', school: 'Conjuration', level: '5', detail: 'Area poison cloud.' },
+  { name: 'Greater Spell Breach', tradition: 'Arcane', school: 'Abjuration', level: '6', detail: 'Removes enemy magical protections.' },
+  { name: 'Delayed Blast Fireball', tradition: 'Arcane', school: 'Evocation', level: '7', detail: 'High-level area fire damage.' },
+  { name: 'Horrid Wilting', tradition: 'Arcane', school: 'Necromancy', level: '8', detail: 'Large area negative energy damage.' },
+  { name: 'Mordenkainen Disjunction', tradition: 'Arcane', school: 'Abjuration', level: '9', detail: 'High-end breach and dispel option.' },
+  { name: 'Heal', tradition: 'Divine', school: 'Conjuration', level: '6', detail: 'Major restoration spell.' },
+  { name: 'Bless', tradition: 'Divine', school: 'Enchantment', level: '1', detail: 'Party attack and save support.' },
+  { name: 'Divine Favor', tradition: 'Divine', school: 'Evocation', level: '1', detail: 'Personal combat buff.' },
+  { name: 'Aid', tradition: 'Divine', school: 'Enchantment', level: '2', detail: 'Temporary hit points and morale support.' },
+  { name: 'Bull Strength', tradition: 'Divine', school: 'Transmutation', level: '2', detail: 'Strength buff.' },
+  { name: 'Prayer', tradition: 'Divine', school: 'Enchantment', level: '3', detail: 'Party buff and enemy debuff.' },
+  { name: 'Death Ward', tradition: 'Divine', school: 'Necromancy', level: '4', detail: 'Protection from death effects.' },
+  { name: 'Divine Power', tradition: 'Divine', school: 'Evocation', level: '4', detail: 'Cleric combat transformation buff.' },
+  { name: 'True Seeing', tradition: 'Divine', school: 'Divination', level: '5', detail: 'Counters concealment and illusions.' },
+  { name: 'Greater Sanctuary', tradition: 'Divine', school: 'Abjuration', level: '7', detail: 'Powerful defensive sanctuary.' },
+  { name: 'Aura of Vitality', tradition: 'Divine', school: 'Transmutation', level: '7', detail: 'Party ability buff.' },
+  { name: 'Dark One Own Luck', tradition: 'Warlock', school: 'Invocation', level: 'Least', detail: 'Warlock save support invocation.' },
+  { name: 'Flee the Scene', tradition: 'Warlock', school: 'Invocation', level: 'Lesser', detail: 'Teleportation-style mobility invocation.' },
+  { name: 'Chilling Tentacles', tradition: 'Warlock', school: 'Invocation', level: 'Greater', detail: 'Control and damage invocation.' },
+  { name: 'Dark Foresight', tradition: 'Warlock', school: 'Invocation', level: 'Dark', detail: 'High-end defensive invocation.' },
+  { name: 'Epic Mage Armor', tradition: 'Epic', school: 'Epic', level: 'Epic', detail: 'Epic defensive spell.' },
+  { name: 'Epic Warding', tradition: 'Epic', school: 'Epic', level: 'Epic', detail: 'Epic damage absorption spell.' },
+  { name: 'Hellball', tradition: 'Epic', school: 'Epic', level: 'Epic', detail: 'Epic mixed elemental blast.' },
+  { name: 'Mummy Dust', tradition: 'Epic', school: 'Epic', level: 'Epic', detail: 'Epic summon spell.' }
 ];
 
 const defaultAbilityScores = {
@@ -856,6 +897,16 @@ export function App(): ReactElement {
               rulesetName={rulesetName}
               openCompendium={() => setCompendiumDrawerOpen(true)}
               busy={busy}
+              onDeleteBuild={(build) =>
+                runAction(async () => {
+                  await scribeApi.deleteBuild(build.id);
+                  if (selectedBuildId === build.id) {
+                    setSelectedBuildId(null);
+                    setExportBuildId(null);
+                    resetBuildForm();
+                  }
+                }, `Deleted ${build.name}.`)
+              }
               onBuildSubmit={() =>
                 runAction(async () => {
                   const payload = {
@@ -1528,6 +1579,7 @@ function BuildsView({
   rulesetName,
   openCompendium,
   busy,
+  onDeleteBuild,
   onBuildSubmit,
   onLevelSubmit
 }: {
@@ -1550,6 +1602,7 @@ function BuildsView({
   rulesetName: (id: string) => string;
   openCompendium: () => void;
   busy: boolean;
+  onDeleteBuild: (build: Build) => void;
   onBuildSubmit: () => void;
   onLevelSubmit: () => void;
 }): ReactElement {
@@ -1564,16 +1617,12 @@ function BuildsView({
   const forgeSteps = getBuildForgeSteps(selectedBuild ?? buildForm, plannedLevels);
   const buildHealth = getBuildHealth(selectedBuild, plannedLevels, selectedBuildFeats);
   const guideSections = selectedBuild ? getBuildLevelGuideSections(selectedBuild.levelCap, plannedLevels, selectedBuildFeats) : [];
-  const validationIssues = validateBuildPlan(
-    selectedBuild ?? buildForm,
-    plannedLevels.length > 0 ? plannedLevels : [levelForm],
-    selectedBuildFeats.length > 0 ? selectedBuildFeats : levelForm.featSelections,
-    selectedBuild?.levelCap ?? buildForm.levelCap
-  );
   const skillEstimate = estimateSkillPoints(levelForm, selectedBuild ?? buildForm);
-  const featureNotes = splitFeatureNotes(levelForm.classFeatureNotes);
-  const [activePicker, setActivePicker] = useState<'feat' | 'skill' | null>(null);
+  const [buildPane, setBuildPane] = useState<'library' | 'editor'>('library');
+  const [activePicker, setActivePicker] = useState<'feat' | 'skill' | 'spell' | null>(null);
   const [pickerQuery, setPickerQuery] = useState('');
+  const [spellSchoolFilter, setSpellSchoolFilter] = useState<(typeof spellSchools)[number]>('All');
+  const [spellTraditionFilter, setSpellTraditionFilter] = useState<(typeof spellTraditions)[number]>('All');
   const filteredFeatOptions = useMemo(() => {
     const needle = pickerQuery.trim().toLowerCase();
     if (!needle) return nwnFeatOptions;
@@ -1584,6 +1633,19 @@ function BuildsView({
     if (!needle) return nwnSkillOptions;
     return nwnSkillOptions.filter((skill) => skill.toLowerCase().includes(needle));
   }, [pickerQuery]);
+  const filteredSpellOptions = useMemo(() => {
+    const needle = pickerQuery.trim().toLowerCase();
+    return nwnSpellOptions.filter((spell) => {
+      const matchesText = !needle || `${spell.name} ${spell.tradition} ${spell.school} ${spell.level} ${spell.detail}`.toLowerCase().includes(needle);
+      const matchesTradition = spellTraditionFilter === 'All' || spell.tradition === spellTraditionFilter;
+      const matchesSchool = spellSchoolFilter === 'All' || spell.school === spellSchoolFilter;
+      return matchesText && matchesTradition && matchesSchool;
+    });
+  }, [pickerQuery, spellSchoolFilter, spellTraditionFilter]);
+  const autoMetrics = useMemo(
+    () => getAutoLevelMetrics(levelForm, selectedBuild ?? buildForm, plannedLevels.filter((level) => level.levelNumber !== levelForm.levelNumber)),
+    [buildForm, levelForm, plannedLevels, selectedBuild]
+  );
 
   function addFeat(): void {
     if (!newFeat.featName.trim()) return;
@@ -1599,7 +1661,7 @@ function BuildsView({
     setNewFeat({ featName: '', source: 'selected', notes: '' });
   }
 
-  function openPicker(picker: 'feat' | 'skill'): void {
+  function openPicker(picker: 'feat' | 'skill' | 'spell'): void {
     setPickerQuery('');
     setActivePicker(picker);
   }
@@ -1617,14 +1679,115 @@ function BuildsView({
     updateSkill(skillName, -currentPoints);
   }
 
+  function applyAutoMetrics(className = levelForm.className): void {
+    const nextLevel = { ...levelForm, className };
+    const metrics = getAutoLevelMetrics(nextLevel, selectedBuild ?? buildForm, plannedLevels.filter((level) => level.levelNumber !== nextLevel.levelNumber));
+    setLevelForm((form) => ({
+      ...form,
+      className,
+      hitPointsGained: metrics.hitPointsGained,
+      baseAttackBonus: metrics.baseAttackBonus,
+      fortitudeSave: metrics.fortitudeSave,
+      reflexSave: metrics.reflexSave,
+      willSave: metrics.willSave,
+      skillPointsAvailable: metrics.skillPointsAvailable
+    }));
+  }
+
+  function addSpellSelection(spellName: string): void {
+    setLevelForm((form) => {
+      const existingSpells = form.spellSelections
+        .split(/[,;]/)
+        .map((spell) => spell.trim())
+        .filter(Boolean);
+      if (existingSpells.some((spell) => spell.toLowerCase() === spellName.toLowerCase())) {
+        return form;
+      }
+      return {
+        ...form,
+        spellSelections: [...existingSpells, spellName].join(', ')
+      };
+    });
+  }
+
   return (
     <>
     <div className="forge-shell build-forge-revamp">
       <BuildForgeRail steps={forgeSteps} />
       <div className="stack forge-main">
       {mode === 'builds' && (
-        <>
-          <section className="panel">
+        <section className="panel build-manager-panel">
+          <div className="panel-header">
+            <div>
+              <h2>Build Plans</h2>
+              <p>Keep the library separate from the active build editor.</p>
+            </div>
+            <div className="segmented-control" aria-label="Build plan mode">
+              <button type="button" className={buildPane === 'library' ? 'active' : ''} onClick={() => setBuildPane('library')}>
+                Library
+              </button>
+              <button type="button" className={buildPane === 'editor' ? 'active' : ''} onClick={() => setBuildPane('editor')}>
+                Editor
+              </button>
+            </div>
+          </div>
+
+          {buildPane === 'library' ? (
+            <>
+              <div className="button-row">
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetBuildForm();
+                    setBuildPane('editor');
+                  }}
+                >
+                  <Plus size={16} />
+                  New Build Plan
+                </button>
+              </div>
+              <DataTable
+                headers={['Name', 'Ruleset', 'Role', 'Class Split', 'Level Path', 'Status', '']}
+                empty="No build plans created yet."
+                rows={data.builds.map((build) => [
+                  build.name,
+                  rulesetName(build.rulesetId),
+                  build.intendedRole || 'Unspecified',
+                  build.classSummary || 'Unplanned',
+                  `${data.buildLevels.filter((level) => level.buildId === build.id).length}/${build.levelCap}`,
+                  formatLabel(build.status),
+                  <span className="table-actions" key={build.id}>
+                    <button
+                      type="button"
+                      className="icon-button"
+                      onClick={() => {
+                        editBuild(build);
+                        setBuildPane('editor');
+                      }}
+                      title="Edit build"
+                      aria-label={`Edit ${build.name}`}
+                    >
+                      <FileText size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-button danger"
+                      onClick={() => {
+                        if (window.confirm(`Delete "${build.name}" and its saved level path?`)) {
+                          onDeleteBuild(build);
+                        }
+                      }}
+                      title="Delete build"
+                      aria-label={`Delete ${build.name}`}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </span>
+                ])}
+              />
+            </>
+          ) : (
+            <>
             <div className="panel-header">
               <div>
                 <h2>{selectedBuildId && data.builds.some((build) => build.id === selectedBuildId) ? 'Edit Build Plan' : 'Create Build Plan'}</h2>
@@ -1701,29 +1864,9 @@ function BuildsView({
                 </button>
               </div>
             </form>
-          </section>
-
-          <section className="panel">
-            <div className="panel-header">
-              <h2>Build Plan Library</h2>
-            </div>
-            <DataTable
-              headers={['Name', 'Ruleset', 'Role', 'Class Split', 'Level Path', 'Status', '']}
-              empty="No build plans created yet."
-              rows={data.builds.map((build) => [
-                build.name,
-                rulesetName(build.rulesetId),
-                build.intendedRole || 'Unspecified',
-                build.classSummary || 'Unplanned',
-                `${data.buildLevels.filter((level) => level.buildId === build.id).length}/${build.levelCap}`,
-                formatLabel(build.status),
-                <button key={build.id} type="button" className="icon-button" onClick={() => editBuild(build)} title="Edit build" aria-label={`Edit ${build.name}`}>
-                  <FileText size={16} />
-                </button>
-              ])}
-            />
-          </section>
-        </>
+            </>
+          )}
+        </section>
       )}
 
       <section className="panel">
@@ -1772,7 +1915,7 @@ function BuildsView({
                 <input type="number" value={levelForm.levelNumber} min={1} max={selectedBuild.levelCap} readOnly />
               </Field>
               <Field label="Class Taken">
-                <select value={levelForm.className} onChange={(event) => setLevelForm((form) => ({ ...form, className: event.target.value }))}>
+                <select value={levelForm.className} onChange={(event) => applyAutoMetrics(event.target.value)}>
                   <option value="">Choose class</option>
                   {levelForm.className && !nwnClassOptions.includes(levelForm.className) && <option value={levelForm.className}>{levelForm.className}</option>}
                   {nwnClassOptions.map((className) => (
@@ -1787,7 +1930,7 @@ function BuildsView({
                   type="number"
                   min={0}
                   value={levelForm.hitPointsGained ?? ''}
-                  onChange={(event) => setLevelForm((form) => ({ ...form, hitPointsGained: event.target.value ? Number(event.target.value) : null }))}
+                  readOnly
                 />
               </Field>
               <Field label="BAB">
@@ -1795,7 +1938,7 @@ function BuildsView({
                   type="number"
                   min={0}
                   value={levelForm.baseAttackBonus ?? ''}
-                  onChange={(event) => setLevelForm((form) => ({ ...form, baseAttackBonus: event.target.value ? Number(event.target.value) : null }))}
+                  readOnly
                 />
               </Field>
               <Field label="Fort">
@@ -1803,7 +1946,7 @@ function BuildsView({
                   type="number"
                   min={0}
                   value={levelForm.fortitudeSave ?? ''}
-                  onChange={(event) => setLevelForm((form) => ({ ...form, fortitudeSave: event.target.value ? Number(event.target.value) : null }))}
+                  readOnly
                 />
               </Field>
               <Field label="Ref">
@@ -1811,7 +1954,7 @@ function BuildsView({
                   type="number"
                   min={0}
                   value={levelForm.reflexSave ?? ''}
-                  onChange={(event) => setLevelForm((form) => ({ ...form, reflexSave: event.target.value ? Number(event.target.value) : null }))}
+                  readOnly
                 />
               </Field>
               <Field label="Will">
@@ -1819,7 +1962,7 @@ function BuildsView({
                   type="number"
                   min={0}
                   value={levelForm.willSave ?? ''}
-                  onChange={(event) => setLevelForm((form) => ({ ...form, willSave: event.target.value ? Number(event.target.value) : null }))}
+                  readOnly
                 />
               </Field>
               <Field label="Skill Points">
@@ -1827,9 +1970,16 @@ function BuildsView({
                   type="number"
                   min={0}
                   value={levelForm.skillPointsAvailable ?? ''}
-                  onChange={(event) => setLevelForm((form) => ({ ...form, skillPointsAvailable: event.target.value ? Number(event.target.value) : null }))}
+                  readOnly
                 />
               </Field>
+              <div className="auto-metric-note">
+                <span>{autoMetrics.note}</span>
+                <button type="button" className="ghost" onClick={() => applyAutoMetrics()} disabled={!levelForm.className.trim()}>
+                  <RefreshCw size={16} />
+                  Recalculate
+                </button>
+              </div>
               <Field label="Ability Increase">
                 <div className="ability-choice-row" role="group" aria-label="Ability increase">
                   {abilityIncreaseOptions.map((option) => (
@@ -1905,34 +2055,13 @@ function BuildsView({
                 )}
               </Field>
               <Field label="Spells" wide>
-                <input value={levelForm.spellSelections} onChange={(event) => setLevelForm((form) => ({ ...form, spellSelections: event.target.value }))} />
-              </Field>
-              <Field label="Equipment" wide>
-                <input
-                  value={levelForm.equipmentRecommendation}
-                  onChange={(event) => setLevelForm((form) => ({ ...form, equipmentRecommendation: event.target.value }))}
-                />
-              </Field>
-              <Field label="Automatic Features" wide>
-                <textarea value={levelForm.classFeatureNotes} onChange={(event) => setLevelForm((form) => ({ ...form, classFeatureNotes: event.target.value }))} />
-                {featureNotes.length > 0 && (
-                  <div className="chip-row">
-                    {featureNotes.map((feature) => (
-                      <span className="chip passive feature-chip" key={feature}>
-                        {feature}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </Field>
-              <Field label="Warnings" wide>
-                <input
-                  value={levelForm.validationWarnings.join('; ')}
-                  onChange={(event) =>
-                    setLevelForm((form) => ({ ...form, validationWarnings: event.target.value.split(';').map((item) => item.trim()).filter(Boolean) }))
-                  }
-                  placeholder="Weapon Master requirements not yet met"
-                />
+                <div className="choice-action-row">
+                  <input value={levelForm.spellSelections} onChange={(event) => setLevelForm((form) => ({ ...form, spellSelections: event.target.value }))} />
+                  <button type="button" className="ghost" onClick={() => openPicker('spell')}>
+                    <Search size={16} />
+                    Browse
+                  </button>
+                </div>
               </Field>
               <Field label="Notes" wide>
                 <textarea value={levelForm.notes} onChange={(event) => setLevelForm((form) => ({ ...form, notes: event.target.value }))} />
@@ -1951,11 +2080,10 @@ function BuildsView({
 
       <div className="forge-record-stack">
         <BuildRecordPanel build={selectedBuild} plannedLevels={plannedLevels} selectedLevelNumber={selectedLevelNumber} rulesetName={rulesetName} />
-        <BuildHealthPanel health={buildHealth} issues={validationIssues} />
+        <BuildHealthPanel health={buildHealth} />
         <BuildReferencePanel
           selectedLevelNumber={selectedLevelNumber}
           selectedFeats={selectedLevelFeats}
-          featureNotes={featureNotes}
           skillEstimate={skillEstimate}
           openCompendium={openCompendium}
         />
@@ -2028,6 +2156,48 @@ function BuildsView({
               </div>
             );
           })}
+        </div>
+      </BuildChoicePicker>
+    )}
+    {activePicker === 'spell' && (
+      <BuildChoicePicker
+        title="Spell Picker"
+        query={pickerQuery}
+        setQuery={setPickerQuery}
+        onClose={() => setActivePicker(null)}
+      >
+        <div className="picker-controls spell-filter-grid">
+          <Field label="Tradition">
+            <select value={spellTraditionFilter} onChange={(event) => setSpellTraditionFilter(event.target.value as (typeof spellTraditions)[number])}>
+              {spellTraditions.map((tradition) => (
+                <option key={tradition} value={tradition}>
+                  {tradition}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="School">
+            <select value={spellSchoolFilter} onChange={(event) => setSpellSchoolFilter(event.target.value as (typeof spellSchools)[number])}>
+              {spellSchools.map((school) => (
+                <option key={school} value={school}>
+                  {school}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+        <div className="picker-option-list">
+          {filteredSpellOptions.map((spell) => (
+            <button key={`${spell.tradition}-${spell.name}`} type="button" className="picker-option spell-option" onClick={() => addSpellSelection(spell.name)}>
+              <span>
+                <strong>{spell.name}</strong>
+                <small>
+                  {spell.tradition} - {spell.school} - Level {spell.level}
+                </small>
+              </span>
+              <em>{spell.detail}</em>
+            </button>
+          ))}
         </div>
       </BuildChoicePicker>
     )}
@@ -2215,12 +2385,12 @@ function BuildRecordPanel({
   );
 }
 
-function BuildHealthPanel({ health, issues }: { health: BuildHealth; issues: ValidationIssue[] }): ReactElement {
+function BuildHealthPanel({ health }: { health: BuildHealth }): ReactElement {
   return (
     <aside className="panel build-health">
       <div className="panel-header">
         <div>
-          <h2>Build Health</h2>
+          <h2>Build Progress</h2>
           <p>{health.plannedLevelCount}/{health.levelCap || 0} levels planned</p>
         </div>
         <strong>{health.completionPercent}%</strong>
@@ -2229,26 +2399,10 @@ function BuildHealthPanel({ health, issues }: { health: BuildHealth; issues: Val
         <div style={{ width: `${health.completionPercent}%` }} />
       </div>
       <div className="record-stat-grid">
+        <StatTile label="Level Entries" value={health.plannedLevelCount} />
         <StatTile label="Feat Sources" value={health.featCount} />
-        <StatTile label="Auto Features" value={health.automaticFeatureCount} />
-        <StatTile label="Warnings" value={health.warningCount} tone={health.warningCount > 0 ? 'warn' : 'ok'} />
         <StatTile label="Status" value={formatLabel(health.statusLabel)} />
       </div>
-      <ul className="validation-list">
-        {issues.length === 0 ? (
-          <li className="validation-item info">
-            <strong>Ready</strong>
-            <span>No validation issues recorded.</span>
-          </li>
-        ) : (
-          issues.slice(0, 7).map((issue) => (
-            <li className={`validation-item ${issue.severity}`} key={issue.id}>
-              <strong>{issue.label}</strong>
-              <span>{issue.detail}</span>
-            </li>
-          ))
-        )}
-      </ul>
     </aside>
   );
 }
@@ -2256,13 +2410,11 @@ function BuildHealthPanel({ health, issues }: { health: BuildHealth; issues: Val
 function BuildReferencePanel({
   selectedLevelNumber,
   selectedFeats,
-  featureNotes,
   skillEstimate,
   openCompendium
 }: {
   selectedLevelNumber: number;
   selectedFeats: Array<FeatSelection | FeatSelectionInput>;
-  featureNotes: string[];
   skillEstimate: SkillPointEstimate;
   openCompendium: () => void;
 }): ReactElement {
@@ -2290,20 +2442,6 @@ function BuildReferencePanel({
               <span className="chip passive source-chip" key={`${feat.featName}-${index}`} title={formatFeatSourceLabel(feat.source)}>
                 <SourceBadge source={feat.source} />
                 {feat.featName}
-              </span>
-            ))}
-          </div>
-        )}
-      </section>
-      <section className="record-section">
-        <h3>Automatic Features</h3>
-        {featureNotes.length === 0 ? (
-          <p>No automatic class features entered yet.</p>
-        ) : (
-          <div className="chip-row">
-            {featureNotes.map((feature) => (
-              <span className="chip passive feature-chip" key={feature}>
-                {feature}
               </span>
             ))}
           </div>
@@ -2955,7 +3093,7 @@ function ExportView({
 function HelpView({ setActiveView }: { setActiveView: (view: View) => void }): ReactElement {
   const helpDetails: Record<View, { summary: string; details: string }> = {
     dashboard: {
-      summary: 'A command desk for recent work, counts, warnings, and fast entry into common actions.',
+      summary: 'A command desk for recent work, planning counts, and fast entry into common actions.',
       details: 'Use it when opening SCRIBE to see what exists, what needs planning attention, and where the local database lives.'
     },
     characters: {
@@ -2964,7 +3102,7 @@ function HelpView({ setActiveView }: { setActiveView: (view: View) => void }): R
     },
     builds: {
       summary: 'Opens Build Forge, where Build Plan metadata and the Level Path live together.',
-      details: 'Use it for intended role, class split, level cap, tags, server context, level-by-level choices, warnings, and guide export readiness.'
+      details: 'Use it for intended role, class split, level cap, tags, server context, level-by-level choices, and guide export readiness.'
     },
     leveling: {
       summary: 'Folded into Build Forge.',

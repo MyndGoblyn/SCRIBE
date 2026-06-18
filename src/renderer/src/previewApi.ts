@@ -330,6 +330,7 @@ export function getScribeApi(): ScribeApi {
     updateCharacter: (id: string, input: CharacterInput) => unsupported({ ...previewData.characters[0], ...input, id, createdAt: now, updatedAt: now } as Character),
     createBuild: (input: BuildInput) => unsupported({ ...previewData.builds[0], ...input, id: crypto.randomUUID(), createdAt: now, updatedAt: now } as Build),
     updateBuild: (id: string, input: BuildInput) => unsupported({ ...previewData.builds[0], ...input, id, createdAt: now, updatedAt: now } as Build),
+    deleteBuild: () => unsupported(undefined),
     upsertBuildLevel: (input: BuildLevelInput) =>
       unsupported({
         ...input,
