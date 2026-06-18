@@ -239,8 +239,26 @@ const previewWikiPages: WikiPageDetail[] = [
     licenseName: 'CC BY-SA 3.0',
     licenseUrl: 'https://creativecommons.org/licenses/by-sa/3.0/',
     categories: ['Prestige classes'],
-    plainText:
-      'Weapon master is a prestige class focused on melee critical hits and specialization with a chosen weapon. This preview page demonstrates offline wiki search layout.'
+    plainText: `Weapon master is a prestige class focused on melee critical hits and specialization with a chosen weapon. This preview page demonstrates offline wiki search layout.
+
+Requirements
+
+Base attack bonus +5
+Weapon Focus in the chosen melee weapon
+Whirlwind Attack
+Intimidate 4 ranks
+
+Class features
+
+Ki damage improves the critical multiplier of the chosen weapon.
+Increased multiplier and superior weapon focus reward high-accuracy martial builds.
+
+Level progression
+
+Lvl | BAB | Fort | Ref | Will | Feats
+1st | +1 | +0 | +0 | +2 | Ki damage
+2nd | +2 | +0 | +0 | +3 | Increased multiplier
+3rd | +3 | +1 | +1 | +3 | Superior weapon focus`
   },
   {
     pageId: 2,
@@ -253,7 +271,14 @@ const previewWikiPages: WikiPageDetail[] = [
     licenseName: 'CC BY-SA 3.0',
     licenseUrl: 'https://creativecommons.org/licenses/by-sa/3.0/',
     categories: ['Class abilities'],
-    plainText: 'Bard song grants allies bonuses that improve with bard level and perform skill investment.'
+    plainText: `Bard song grants allies bonuses that improve with bard level and perform skill investment.
+
+Progression
+
+Bard level | Perform rank | Attack bonus | Damage bonus | Skill bonus
+1 | 3 | +1 | +0 | +1
+6 | 9 | +1 | +1 | +2
+11 | 14 | +2 | +1 | +3`
   },
   {
     pageId: 3,

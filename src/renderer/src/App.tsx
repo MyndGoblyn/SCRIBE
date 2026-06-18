@@ -48,6 +48,7 @@ import {
 } from '../../shared/calculations';
 import { getScribeApi } from './previewApi';
 import { SourceBadge } from './components/SourceBadge';
+import { WikiArticle } from './components/WikiArticle';
 import scribeEmblemUrl from './assets/scribe-emblem.png';
 import scribeLogoUrl from './assets/scribe-logo.png';
 import {
@@ -2229,7 +2230,7 @@ function WikiView({
                 <p className="license-note">
                   Text from {wikiSummary?.sourceName ?? 'NWNWiki'} under {selectedWikiPage.licenseName}.
                 </p>
-                <pre>{selectedWikiPage.plainText}</pre>
+                <WikiArticle plainText={selectedWikiPage.plainText} />
               </>
             ) : (
               <EmptyLine text="Select a result to read the local article text." />
@@ -2345,7 +2346,7 @@ function CompendiumDrawer({
                     Source
                   </a>
                 </div>
-                <pre>{selectedWikiPage.plainText}</pre>
+                <WikiArticle compact plainText={selectedWikiPage.plainText} />
               </>
             ) : (
               <EmptyLine text="Select a result to preview the article." />
